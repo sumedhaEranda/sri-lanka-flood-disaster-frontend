@@ -1,4 +1,4 @@
-import { t } from './i18n.ts'
+import { t, getCurrentLanguage } from './i18n.ts'
 import { submitHelpRequest } from './api.ts'
 import { formatPhoneNumber, validatePhoneNumber } from './phone-formatter.ts'
 
@@ -138,6 +138,13 @@ export function createHomelessHelpForm(): string {
         
         <button type="submit" class="submit-btn" data-i18n="helpForm.submit">${tr.helpForm.submit}</button>
       </form>
+      
+      <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <p class="loading-text" id="loading-text">සුරකිමින්...</p>
+        </div>
+      </div>
       
       <div id="success-message" class="message success-message hidden">
         <h2 data-i18n="helpForm.success">✅ ${tr.helpForm.success}</h2>
@@ -287,8 +294,23 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     
+    const loadingOverlay = container.querySelector<HTMLDivElement>('#loading-overlay')
+    const loadingText = container.querySelector<HTMLParagraphElement>('#loading-text')
+    const submitBtn = form.querySelector<HTMLButtonElement>('.submit-btn')
+    
     if (successMessage) successMessage.classList.add('hidden')
     if (errorMessage) errorMessage.classList.add('hidden')
+    
+    // Show loading screen
+    if (loadingOverlay) loadingOverlay.classList.remove('hidden')
+    if (loadingText) {
+      loadingText.textContent = getCurrentLanguage() === 'si' ? 'සුරකිමින්...' : 'Saving...'
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true
+      submitBtn.style.opacity = '0.6'
+      submitBtn.style.cursor = 'not-allowed'
+    }
     
     const formData = new FormData(form)
     const urgentNeeds = form.querySelectorAll<HTMLInputElement>('input[name="urgentNeeds"]:checked')
@@ -342,6 +364,14 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
     try {
       await submitToDisasterCenter(helpRequest)
       
+      // Hide loading screen
+      if (loadingOverlay) loadingOverlay.classList.add('hidden')
+      if (submitBtn) {
+        submitBtn.disabled = false
+        submitBtn.style.opacity = '1'
+        submitBtn.style.cursor = 'pointer'
+      }
+      
       if (successMessage) {
         successMessage.classList.remove('hidden')
         form.reset()
@@ -353,6 +383,15 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
       }
     } catch (error) {
       console.error('Error submitting help request:', error)
+      
+      // Hide loading screen
+      if (loadingOverlay) loadingOverlay.classList.add('hidden')
+      if (submitBtn) {
+        submitBtn.disabled = false
+        submitBtn.style.opacity = '1'
+        submitBtn.style.cursor = 'pointer'
+      }
+      
       if (errorMessage) {
         errorMessage.classList.remove('hidden')
         errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' })

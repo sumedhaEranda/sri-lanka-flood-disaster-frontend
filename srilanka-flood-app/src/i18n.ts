@@ -396,10 +396,10 @@ const translations: Record<Language, Translations> = {
   }
 }
 
-// Get current language from localStorage or default to English
+// Get current language from localStorage or default to Sinhala
 export function getCurrentLanguage(): Language {
   const saved = localStorage.getItem('language') as Language
-  return saved && (saved === 'en' || saved === 'si') ? saved : 'en'
+  return saved && (saved === 'en' || saved === 'si') ? saved : 'si'
 }
 
 // Set language

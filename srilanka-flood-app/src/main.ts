@@ -2,6 +2,21 @@ import './style.css'
 import { createDashboardHTML, setupDashboard } from './disaster-centers.ts'
 import { createHomelessHelpForm, setupHomelessHelpForm } from './homeless-help.ts'
 import { createCenterFormHTML, setupCreateCenterForm } from './create-center.ts'
+import { getCurrentLanguage, setLanguage } from './i18n.ts'
+
+// Initialize default language to Sinhala if not set
+if (!localStorage.getItem('language')) {
+  setLanguage('si')
+}
+
+// Update HTML lang attribute based on current language
+const currentLang = getCurrentLanguage()
+document.documentElement.lang = currentLang
+
+// Listen for language changes and update HTML lang attribute
+window.addEventListener('languagechange', ((e: CustomEvent<{ language: string }>) => {
+  document.documentElement.lang = e.detail.language
+}) as EventListener)
 
 const app = document.querySelector<HTMLDivElement>('#app')
 

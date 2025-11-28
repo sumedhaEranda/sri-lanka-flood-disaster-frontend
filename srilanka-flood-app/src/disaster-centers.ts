@@ -33,6 +33,7 @@ declare const google: any
 
 let dashboardMap: any = null
 let markers: any[] = []
+let currentInfoWindow: any = null // Track currently open InfoWindow
 
 // Create Dashboard HTML
 export function createDashboardHTML(): string {
@@ -655,9 +656,22 @@ function initializeMap(mapContainer: HTMLDivElement): void {
         content: infoWindowContent
       })
 
+      // Listen for InfoWindow close event
+      google.maps.event.addListener(infoWindow, 'closeclick', () => {
+        if (currentInfoWindow === infoWindow) {
+          currentInfoWindow = null
+        }
+      })
+
       // Add click listener to marker
       marker.addListener('click', () => {
+        // Close previous InfoWindow if open
+        if (currentInfoWindow) {
+          currentInfoWindow.close()
+        }
+        // Open new InfoWindow and track it
         infoWindow.open(dashboardMap, marker)
+        currentInfoWindow = infoWindow
       })
 
       markers.push(marker)
@@ -789,9 +803,22 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
       content: infoWindowContent
     })
     
+    // Listen for InfoWindow close event
+    google.maps.event.addListener(infoWindow, 'closeclick', () => {
+      if (currentInfoWindow === infoWindow) {
+        currentInfoWindow = null
+      }
+    })
+    
     // Add click listener to marker
     marker.addListener('click', () => {
+      // Close previous InfoWindow if open
+      if (currentInfoWindow) {
+        currentInfoWindow.close()
+      }
+      // Open new InfoWindow and track it
       infoWindow.open(dashboardMap, marker)
+      currentInfoWindow = infoWindow
     })
     
     markers.push(marker)
