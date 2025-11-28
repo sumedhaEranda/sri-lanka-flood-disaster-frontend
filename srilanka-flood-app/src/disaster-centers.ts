@@ -1,0 +1,1099 @@
+import { t, getCurrentLanguage, setLanguage, type Language } from './i18n.ts'
+import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, type DisasterCenter, type Statistics, type HelpRequest } from './api.ts'
+
+// Export DisasterCenter type for use in other files
+export type { DisasterCenter }
+
+// Disaster centers loaded from API
+export let disasterCenters: DisasterCenter[] = []
+
+// Help requests loaded from API
+let helpRequests: HelpRequest[] = []
+
+// Statistics loaded from API (stored for potential future use)
+// let dashboardStatistics: Statistics | null = null
+
+// Load centers from API
+export async function loadDisasterCenters(): Promise<void> {
+  try {
+    disasterCenters = await fetchDisasterCenters()
+  } catch (error) {
+    console.error('Error loading disaster centers:', error)
+    disasterCenters = [] // Set to empty array on error
+  }
+}
+
+// Refresh centers from API
+export async function refreshDisasterCenters(): Promise<void> {
+  await loadDisasterCenters()
+}
+
+// Declare Google Maps
+declare const google: any
+
+let dashboardMap: any = null
+let markers: any[] = []
+
+// Create Dashboard HTML
+export function createDashboardHTML(): string {
+  // Calculate statistics from loaded centers (will be updated from API)
+  const activeCenters = disasterCenters.filter(c => c.status === 'active').length
+  const totalCapacity = disasterCenters.reduce((sum, c) => sum + c.capacity, 0)
+  const limitedCenters = disasterCenters.filter(c => c.status === 'limited').length
+  const currentLang = getCurrentLanguage()
+  const tr = t()
+
+  return `
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>🌊 Flood Relief</h2>
+          <p>Sri Lanka</p>
+        </div>
+        <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu">
+          <span>☰</span>
+        </button>
+        <nav class="sidebar-nav" id="sidebar-nav">
+          <a href="#" class="nav-item active" data-view="overview">
+            <span>📊</span>
+            <span data-i18n="sidebar.overview">${tr.sidebar.overview}</span>
+          </a>
+          <a href="#" class="nav-item" data-view="centers">
+            <span>🏢</span>
+            <span data-i18n="sidebar.disasterCenters">${tr.sidebar.disasterCenters}</span>
+          </a>
+          <a href="#" class="nav-item" data-view="requests">
+            <span>📋</span>
+            <span data-i18n="sidebar.helpRequests">${tr.sidebar.helpRequests}</span>
+          </a>
+          <a href="#" class="nav-item" id="request-help-nav">
+            <span>📝</span>
+            <span data-i18n="sidebar.requestHelp">${tr.sidebar.requestHelp}</span>
+          </a>
+          <a href="#" class="nav-item" id="create-center-nav">
+            <span>➕</span>
+            <span data-i18n="sidebar.createCenter">${tr.sidebar.createCenter || 'Create Center'}</span>
+          </a>
+          <div class="language-switcher">
+            <button class="lang-btn ${currentLang === 'en' ? 'active' : ''}" data-lang="en">
+              <span>🇬🇧</span>
+              <span>English</span>
+            </button>
+            <button class="lang-btn ${currentLang === 'si' ? 'active' : ''}" data-lang="si">
+              <span>🇱🇰</span>
+              <span>සිංහල</span>
+            </button>
+          </div>
+        </nav>
+        <div class="sidebar-footer">
+          <p>🚨 <span data-i18n="sidebar.emergencyContact">${tr.sidebar.emergencyContact}</span></p>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <div class="topbar-left">
+            <h1 data-i18n="dashboard.title">${tr.dashboard.title}</h1>
+            <p class="topbar-subtitle" data-i18n="dashboard.subtitle">${tr.dashboard.subtitle}</p>
+          </div>
+          <div class="topbar-right">
+            <button id="refresh-btn" class="icon-btn" title="${tr.dashboard.refresh}">
+              <span>🔄</span>
+            </button>
+            <button id="request-help-btn" class="primary-btn">
+              <span>➕</span>
+              <span data-i18n="dashboard.requestHelp">${tr.dashboard.requestHelp}</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="stats-section">
+          <div class="stat-card">
+            <div class="stat-icon stat-primary">🏢</div>
+            <div class="stat-content">
+              <h3 class="stat-value">${disasterCenters.length}</h3>
+              <p class="stat-label" data-i18n="stats.totalCenters">${tr.stats.totalCenters}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-success">✓</div>
+            <div class="stat-content">
+              <h3 class="stat-value">${activeCenters}</h3>
+              <p class="stat-label" data-i18n="stats.activeCenters">${tr.stats.activeCenters}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-warning">⚠</div>
+            <div class="stat-content">
+              <h3 class="stat-value">${limitedCenters}</h3>
+              <p class="stat-label" data-i18n="stats.limitedCapacity">${tr.stats.limitedCapacity}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon stat-info">👥</div>
+            <div class="stat-content">
+              <h3 class="stat-value">${totalCapacity.toLocaleString()}</h3>
+              <p class="stat-label" data-i18n="stats.totalCapacity">${tr.stats.totalCapacity}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-section" id="overview-section">
+          <div class="section-header">
+            <h2 data-i18n="map.title">📍 ${tr.map.title}</h2>
+            <div class="map-legend">
+              <span class="legend-item"><span class="legend-dot active"></span> <span data-i18n="map.active">${tr.map.active}</span></span>
+              <span class="legend-item"><span class="legend-dot limited"></span> <span data-i18n="map.limited">${tr.map.limited}</span></span>
+              <span class="legend-item"><span class="legend-dot full"></span> <span data-i18n="map.full">${tr.map.full}</span></span>
+              <span class="legend-item"><span class="legend-dot help-request"></span> <span data-i18n="map.helpRequests">${tr.map.helpRequests || 'Help Requests'}</span></span>
+            </div>
+          </div>
+          <div id="dashboard-map" class="map"></div>
+        </section>
+
+        <section class="content-section" id="centers-section" style="display: none;">
+          <div class="section-header">
+            <h2 data-i18n="centers.title">🏢 ${tr.centers.title}</h2>
+            <input type="text" id="search-centers" class="search-input" placeholder="${tr.centers.search}" data-i18n-placeholder="centers.search">
+          </div>
+          <div class="table-wrapper">
+            <table class="centers-table">
+              <thead>
+                <tr>
+                  <th data-i18n="centers.name">${tr.centers.name}</th>
+                  <th data-i18n="centers.location">${tr.centers.location}</th>
+                  <th data-i18n="centers.phone">${tr.centers.phone}</th>
+                  <th data-i18n="centers.capacity">${tr.centers.capacity}</th>
+                  <th data-i18n="centers.status">${tr.centers.status}</th>
+                  <th data-i18n="centers.services">${tr.centers.services}</th>
+                  <th data-i18n="centers.additionalInfo">${tr.centers.additionalInfo || 'Additional Information'}</th>
+                  <th data-i18n="centers.actions">${tr.centers.actions}</th>
+                </tr>
+              </thead>
+              <tbody id="centers-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="content-section" id="requests-section" style="display: none;">
+          <div class="section-header">
+            <h2 data-i18n="requests.title">📋 ${tr.requests.title}</h2>
+          </div>
+          <div id="requests-container" class="requests-list"></div>
+        </section>
+      </main>
+    </div>
+  `
+}
+
+// Setup Dashboard
+export async function setupDashboard(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void): Promise<void> {
+  const mapContainer = container.querySelector<HTMLDivElement>('#dashboard-map')
+  const requestHelpNav = container.querySelector<HTMLAnchorElement>('#request-help-nav')
+  const requestHelpBtn = container.querySelector<HTMLButtonElement>('#request-help-btn')
+  const createCenterNav = container.querySelector<HTMLAnchorElement>('#create-center-nav')
+  const navItems = container.querySelectorAll<HTMLAnchorElement>('.nav-item[data-view]')
+  const searchInput = container.querySelector<HTMLInputElement>('#search-centers')
+
+  // Navigation handlers
+  if (requestHelpNav) {
+    requestHelpNav.addEventListener('click', (e) => {
+      e.preventDefault()
+      showFormCallback()
+    })
+  }
+
+  if (requestHelpBtn) {
+    requestHelpBtn.addEventListener('click', () => {
+      showFormCallback()
+    })
+  }
+
+  if (createCenterNav && showCreateCenterCallback) {
+    createCenterNav.addEventListener('click', (e) => {
+      e.preventDefault()
+      showCreateCenterCallback()
+    })
+  }
+
+  // Mobile menu toggle - Enhanced for mobile browsers
+  const mobileMenuToggle = container.querySelector<HTMLButtonElement>('#mobile-menu-toggle')
+  const sidebarNav = container.querySelector<HTMLElement>('#sidebar-nav')
+  
+  if (mobileMenuToggle && sidebarNav) {
+    // Prevent event listener duplication
+    const newToggle = mobileMenuToggle.cloneNode(true) as HTMLButtonElement
+    mobileMenuToggle.parentNode?.replaceChild(newToggle, mobileMenuToggle)
+    
+    newToggle.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const isActive = sidebarNav.classList.toggle('active')
+      newToggle.classList.toggle('active', isActive)
+      console.log('Menu toggled:', isActive) // Debug log
+    })
+    
+    // Touch event for better mobile support
+    newToggle.addEventListener('touchend', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const isActive = sidebarNav.classList.toggle('active')
+      newToggle.classList.toggle('active', isActive)
+    })
+    
+    // Close menu when clicking outside
+    const closeMenuOnOutsideClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node
+      if (window.innerWidth <= 768 && 
+          sidebarNav.classList.contains('active') &&
+          !sidebarNav.contains(target) &&
+          !newToggle.contains(target)) {
+        sidebarNav.classList.remove('active')
+        newToggle.classList.remove('active')
+      }
+    }
+    
+    // Use capture phase for better mobile support
+    document.addEventListener('click', closeMenuOnOutsideClick, true)
+    document.addEventListener('touchend', closeMenuOnOutsideClick, true)
+  }
+  
+  // Sidebar navigation
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault()
+      const view = item.dataset.view
+      
+      navItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+      
+      // Close mobile menu after selection
+      const currentSidebarNav = container.querySelector<HTMLElement>('#sidebar-nav')
+      const currentMobileToggle = container.querySelector<HTMLButtonElement>('#mobile-menu-toggle')
+      if (currentSidebarNav && window.innerWidth <= 768) {
+        currentSidebarNav.classList.remove('active')
+        if (currentMobileToggle) {
+          currentMobileToggle.classList.remove('active')
+        }
+      }
+      
+      const sections = container.querySelectorAll<HTMLElement>('.content-section')
+      sections.forEach(section => {
+        section.style.display = 'none'
+      })
+      
+      if (view === 'overview') {
+        const overviewSection = container.querySelector<HTMLElement>('#overview-section')
+        if (overviewSection) overviewSection.style.display = 'block'
+      } else if (view === 'centers') {
+        const centersSection = container.querySelector<HTMLElement>('#centers-section')
+        if (centersSection) centersSection.style.display = 'block'
+      } else if (view === 'requests') {
+        const requestsSection = container.querySelector<HTMLElement>('#requests-section')
+        if (requestsSection) requestsSection.style.display = 'block'
+      }
+    })
+    
+    // Add touch support for mobile browsers
+    item.addEventListener('touchend', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const view = item.dataset.view
+      
+      navItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+      
+      const currentSidebarNav = container.querySelector<HTMLElement>('#sidebar-nav')
+      const currentMobileToggle = container.querySelector<HTMLButtonElement>('#mobile-menu-toggle')
+      if (currentSidebarNav && window.innerWidth <= 768) {
+        currentSidebarNav.classList.remove('active')
+        if (currentMobileToggle) {
+          currentMobileToggle.classList.remove('active')
+        }
+      }
+      
+      const sections = container.querySelectorAll<HTMLElement>('.content-section')
+      sections.forEach(section => {
+        section.style.display = 'none'
+      })
+      
+      if (view === 'overview') {
+        const overviewSection = container.querySelector<HTMLElement>('#overview-section')
+        if (overviewSection) overviewSection.style.display = 'block'
+      } else if (view === 'centers') {
+        const centersSection = container.querySelector<HTMLElement>('#centers-section')
+        if (centersSection) centersSection.style.display = 'block'
+      } else if (view === 'requests') {
+        const requestsSection = container.querySelector<HTMLElement>('#requests-section')
+        if (requestsSection) requestsSection.style.display = 'block'
+      }
+    }, { passive: false })
+  })
+
+  // Search functionality
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const searchTerm = (e.target as HTMLInputElement).value.toLowerCase()
+      filterCentersTable(searchTerm)
+    })
+  }
+
+  // Load data from API
+  loadDashboardData(container)
+
+  // Initialize map with error handling
+  if (mapContainer) {
+    if (typeof google !== 'undefined' && google.maps) {
+      initializeMap(mapContainer)
+    } else if ((window as any).googleMapsError) {
+      showMapError(mapContainer, 'Google Maps failed to load. Please check your API key configuration.')
+    } else {
+      // Wait for Google Maps to load
+      let attempts = 0
+      const maxAttempts = 50 // 5 seconds max wait
+      
+      const checkGoogleMaps = setInterval(() => {
+        attempts++
+        
+        if ((window as any).googleMapsError) {
+          clearInterval(checkGoogleMaps)
+          showMapError(mapContainer, 'Google Maps authentication failed. Please check your API key.')
+        } else if (typeof google !== 'undefined' && google.maps) {
+          clearInterval(checkGoogleMaps)
+          initializeMap(mapContainer)
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkGoogleMaps)
+          showMapError(mapContainer, 'Google Maps failed to load. Please check your internet connection and API key.')
+        }
+      }, 100)
+      
+      // Also listen for the custom event
+      window.addEventListener('googlemapsloaded', () => {
+        clearInterval(checkGoogleMaps)
+        if (mapContainer && typeof google !== 'undefined' && google.maps) {
+          initializeMap(mapContainer)
+        }
+      }, { once: true })
+      
+      window.addEventListener('googlemapserror', () => {
+        clearInterval(checkGoogleMaps)
+        showMapError(mapContainer, 'Google Maps authentication failed. Please check your API key.')
+      }, { once: true })
+    }
+  }
+
+  // Display tables (will be updated after data loads)
+  displayCentersTable()
+  loadHelpRequests(container)
+
+  // Refresh button
+  const refreshBtn = container.querySelector<HTMLButtonElement>('#refresh-btn')
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true
+      refreshBtn.innerHTML = '<span>⏳</span>'
+      try {
+        await loadDashboardData(container)
+        await loadHelpRequests(container)
+        displayCentersTable()
+      } catch (error) {
+        console.error('Error refreshing data:', error)
+        alert('Failed to refresh data. Please try again.')
+      } finally {
+        refreshBtn.disabled = false
+        refreshBtn.innerHTML = '<span>🔄</span>'
+      }
+    })
+  }
+
+  // Language switcher
+  setupLanguageSwitcher(container, showFormCallback, showCreateCenterCallback)
+}
+
+// Load all dashboard data from API
+async function loadDashboardData(container: HTMLElement): Promise<void> {
+  try {
+    // Load centers and statistics in parallel
+    const [, stats] = await Promise.all([
+      loadDisasterCenters(),
+      fetchStatistics().catch(() => null) // Continue even if stats fail
+    ])
+
+    // Update statistics if available
+    if (stats) {
+      // dashboardStatistics = stats
+      updateStatisticsDisplay(container, stats)
+    } else {
+      // Calculate from centers if stats API fails
+      updateStatisticsFromCenters(container)
+    }
+
+    // Update centers table and map
+    displayCentersTable()
+    const mapContainer = container.querySelector<HTMLDivElement>('#dashboard-map')
+    if (mapContainer && typeof google !== 'undefined' && google.maps) {
+      initializeMap(mapContainer)
+    }
+  } catch (error) {
+    console.error('Error loading dashboard data:', error)
+    // Show error message to user
+    const statsSection = container.querySelector('.stats-section')
+    if (statsSection) {
+      statsSection.innerHTML = '<p style="text-align: center; padding: 2rem; color: #dc3545;">Failed to load data. Please check your connection and try again.</p>'
+    }
+  }
+}
+
+// Update statistics display from API statistics
+function updateStatisticsDisplay(container: HTMLElement, stats: Statistics): void {
+  const statCards = container.querySelectorAll('.stat-value')
+  if (statCards.length >= 4) {
+    statCards[0].textContent = stats.totalCenters.toString()
+    statCards[1].textContent = stats.activeCenters.toString()
+    statCards[2].textContent = stats.limitedCenters.toString()
+    statCards[3].textContent = stats.totalCapacity.toLocaleString()
+  }
+}
+
+// Update statistics from centers data (fallback)
+function updateStatisticsFromCenters(container: HTMLElement): void {
+  const activeCenters = disasterCenters.filter(c => c.status === 'active').length
+  const limitedCenters = disasterCenters.filter(c => c.status === 'limited').length
+  const totalCapacity = disasterCenters.reduce((sum, c) => sum + c.capacity, 0)
+  
+  const statCards = container.querySelectorAll('.stat-value')
+  if (statCards.length >= 4) {
+    statCards[0].textContent = disasterCenters.length.toString()
+    statCards[1].textContent = activeCenters.toString()
+    statCards[2].textContent = limitedCenters.toString()
+    statCards[3].textContent = totalCapacity.toLocaleString()
+  }
+}
+
+// Load help requests from API
+async function loadHelpRequests(container: HTMLElement): Promise<void> {
+  try {
+    const response = await fetchHelpRequests({ limit: 100, sort: 'timestamp', order: 'desc' })
+    helpRequests = response.data.filter(req => req.latitude && req.longitude) // Only requests with coordinates
+    displayHelpRequests(container, response.data)
+    
+    // Update map with help request markers if map is already initialized
+    // Don't change camera position - just add markers
+    const mapContainer = container.querySelector<HTMLDivElement>('#dashboard-map')
+    if (mapContainer && dashboardMap && typeof google !== 'undefined' && google.maps) {
+      addHelpRequestMarkersToMap()
+      // Keep default camera position - don't auto-zoom
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat: 7.8731, lng: 80.7718 })
+        dashboardMap.setZoom(8)
+      }
+    }
+  } catch (error) {
+    console.error('Error loading help requests:', error)
+    helpRequests = []
+    displayHelpRequests(container, []) // Show empty state
+  }
+}
+
+// Setup language switcher
+function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void): void {
+  const langButtons = container.querySelectorAll<HTMLButtonElement>('.lang-btn')
+  
+  langButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const lang = btn.dataset.lang as Language
+      setLanguage(lang)
+      // Reload dashboard with new language
+      const app = document.querySelector<HTMLDivElement>('#app')
+      if (app) {
+        app.innerHTML = createDashboardHTML()
+        await setupDashboard(app, showFormCallback, showCreateCenterCallback)
+      }
+    })
+  })
+}
+
+// Show map error message
+function showMapError(mapContainer: HTMLDivElement, message: string): void {
+  mapContainer.innerHTML = `
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 2rem; text-align: center; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
+      <h3 style="color: #dc3545; margin-bottom: 0.5rem;">Map Loading Error</h3>
+      <p style="color: #6c757d; margin-bottom: 1rem;">${message}</p>
+      <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 1rem; margin-top: 1rem; max-width: 500px;">
+        <p style="margin: 0; color: #856404; font-size: 0.875rem;">
+          <strong>Possible solutions:</strong><br>
+          1. Check if Google Maps JavaScript API is enabled in Google Cloud Console<br>
+          2. Verify API key restrictions allow your domain<br>
+          3. Check API key billing status<br>
+          4. Ensure internet connection is active
+        </p>
+      </div>
+      <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.75rem 1.5rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+        🔄 Retry
+      </button>
+    </div>
+  `
+}
+
+// Initialize Google Map
+function initializeMap(mapContainer: HTMLDivElement): void {
+  try {
+    // Clear existing map
+    if (mapContainer.hasChildNodes()) {
+      mapContainer.innerHTML = ''
+    }
+
+    // Clear existing markers
+    markers.forEach(marker => marker.setMap(null))
+    markers = []
+
+    if (typeof google === 'undefined' || !google.maps) {
+      console.error('Google Maps not loaded')
+      showMapError(mapContainer, 'Google Maps library is not available.')
+      return
+    }
+
+    // Initialize Google Map with default camera position (center of Sri Lanka)
+    try {
+      dashboardMap = new google.maps.Map(mapContainer, {
+        center: { lat: 7.8731, lng: 80.7718 }, // Center of Sri Lanka
+        zoom: 8, // Default zoom level to show entire country
+        mapTypeId: 'roadmap',
+        minZoom: 7, // Prevent zooming out too far
+        maxZoom: 18, // Prevent zooming in too close
+        restriction: {
+          latLngBounds: {
+            north: 9.8,
+            south: 5.9,
+            east: 81.9,
+            west: 79.7
+          },
+          strictBounds: false // Allow some panning outside bounds
+        },
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      })
+      
+      // Explicitly set default camera position (center of Sri Lanka)
+      dashboardMap.setCenter({ lat: 7.8731, lng: 80.7718 })
+      dashboardMap.setZoom(8)
+    } catch (error) {
+      console.error('Error initializing Google Map:', error)
+      showMapError(mapContainer, `Error initializing map: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      return
+    }
+
+    // Create bounds to fit all markers
+    const bounds = new google.maps.LatLngBounds()
+
+    // Add markers for each disaster center
+    const tr = t()
+    
+    // Add help request markers first (so they appear below center markers)
+    addHelpRequestMarkersToMap(bounds)
+    
+    disasterCenters.forEach(center => {
+      const color = center.status === 'active' ? '#28a745' : center.status === 'limited' ? '#ffc107' : '#dc3545'
+      
+      // Create custom marker icon
+      const markerIcon = {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 3
+      }
+
+      // Create marker
+      const marker = new google.maps.Marker({
+        position: { lat: center.latitude, lng: center.longitude },
+        map: dashboardMap,
+        icon: markerIcon,
+        title: center.name
+      })
+
+      // Create info window content
+      const imageHtml = center.image ? `
+        <div style="margin: 0 0 10px 0; border-radius: 8px; overflow: hidden;">
+          <img src="${center.image}" 
+               alt="${center.name}" 
+               style="width: 100%; max-height: 200px; object-fit: cover; display: block; cursor: pointer;"
+               onclick="window.open('${center.image}', '_blank')"
+               onerror="this.style.display='none'">
+        </div>
+      ` : ''
+      
+      const additionalInfoHtml = center.additionalInfo ? `
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 5px 0; color: #475569; font-weight: 600; font-size: 0.9rem;">${tr.centers.additionalInfo || 'Additional Information'}:</p>
+          <p style="margin: 5px 0; color: #64748b; font-size: 0.875rem; line-height: 1.4;">${center.additionalInfo}</p>
+        </div>
+      ` : ''
+      
+      const infoWindowContent = `
+        <div style="padding: 10px; min-width: 250px; max-width: 350px;">
+          ${imageHtml}
+          <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 1.1rem;">${center.name}</h3>
+          <p style="margin: 5px 0; color: #475569;">📍 ${center.address}</p>
+          <p style="margin: 5px 0; color: #475569;">📞 <a href="tel:${center.phone}" style="color: #667eea; text-decoration: none;">${center.phone}</a></p>
+          <p style="margin: 5px 0; color: #475569;">👥 ${tr.centers.capacity}: ${center.capacity}</p>
+          <p style="margin: 5px 0; color: #475569;">${tr.centers.status}: <strong style="color: ${color};">${tr.status[center.status]}</strong></p>
+          <p style="margin: 5px 0; color: #475569;">${tr.centers.services}: ${center.services.join(', ')}</p>
+          ${additionalInfoHtml}
+          <a href="tel:${center.phone}" style="display: inline-block; margin-top: 10px; padding: 8px 16px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">📞 ${tr.centers.call}</a>
+        </div>
+      `
+
+      // Create info window
+      const infoWindow = new google.maps.InfoWindow({
+        content: infoWindowContent
+      })
+
+      // Add click listener to marker
+      marker.addListener('click', () => {
+        infoWindow.open(dashboardMap, marker)
+      })
+
+      markers.push(marker)
+      bounds.extend({ lat: center.latitude, lng: center.longitude })
+    })
+
+    // Keep default camera position - don't auto-zoom to fit markers
+    // This prevents the map from zooming in/out when data loads
+    if (dashboardMap) {
+      // Always maintain default position unless user manually interacts
+      dashboardMap.setCenter({ lat: 7.8731, lng: 80.7718 })
+      dashboardMap.setZoom(8)
+    }
+  } catch (error) {
+    console.error('Error in initializeMap:', error)
+    showMapError(mapContainer, `Map initialization error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+// Add help request markers to the map
+function addHelpRequestMarkersToMap(bounds?: any): void {
+  if (!dashboardMap || typeof google === 'undefined' || !google.maps) return
+  
+  const tr = t()
+  
+  // Create bounds if not provided
+  if (!bounds) {
+    bounds = new google.maps.LatLngBounds()
+  }
+  
+  helpRequests.forEach(request => {
+    if (!request.latitude || !request.longitude) return
+    
+    // Determine marker color based on urgency level
+    let markerColor = '#667eea' // Default blue
+    if (request.urgencyLevel === 'critical') {
+      markerColor = '#dc3545' // Red
+    } else if (request.urgencyLevel === 'urgent') {
+      markerColor = '#ff9800' // Orange
+    } else if (request.urgencyLevel === 'moderate') {
+      markerColor = '#ffc107' // Yellow
+    }
+    
+    // Create custom marker icon (different shape - square/pin for help requests)
+    const markerIcon = {
+      path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+      scale: 8,
+      fillColor: markerColor,
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      rotation: 180 // Point downward
+    }
+    
+    // Create marker
+    const marker = new google.maps.Marker({
+      position: { lat: request.latitude, lng: request.longitude },
+      map: dashboardMap,
+      icon: markerIcon,
+      title: `${tr.requests.name || 'Name'}: ${request.name}`
+    })
+    
+    // Format urgent needs
+    const needsIcons: Record<string, string> = {
+      shelter: '🏠',
+      food: '🍽️',
+      medical: '🏥',
+      clothing: '👕',
+      transportation: '🚗'
+    }
+    
+    const urgentNeedsHtml = request.urgentNeeds.map(need => 
+      `<span style="display: inline-block; margin: 2px; padding: 4px 8px; background: #fef3c7; border-radius: 4px; font-size: 0.85rem;">${needsIcons[need] || '📌'} ${need}</span>`
+    ).join('')
+    
+    // Format urgency level badge
+    const urgencyBadgeHtml = request.urgencyLevel ? `
+      <div style="margin: 5px 0;">
+        <span style="display: inline-block; padding: 4px 8px; background: ${markerColor === '#dc3545' ? '#fee2e2' : markerColor === '#ff9800' ? '#fed7aa' : '#fef3c7'}; color: ${markerColor === '#dc3545' ? '#991b1b' : markerColor === '#ff9800' ? '#9a3412' : '#92400e'}; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">
+          ${request.urgencyLevel}
+        </span>
+      </div>
+    ` : ''
+    
+    // Format verification image
+    const imageHtml = request.verificationImage ? `
+      <div style="margin: 10px 0; border-radius: 8px; overflow: hidden;">
+        <img src="${request.verificationImage}" 
+             alt="Verification Image" 
+             style="width: 100%; max-height: 150px; object-fit: cover; display: block; cursor: pointer;"
+             onclick="window.open('${request.verificationImage}', '_blank')"
+             onerror="this.style.display='none'">
+      </div>
+    ` : ''
+    
+    // Format date
+    const date = request.timestamp ? new Date(request.timestamp) : new Date()
+    const dateStr = date.toLocaleString()
+    
+    // Create info window content
+    const infoWindowContent = `
+      <div style="padding: 10px; min-width: 250px; max-width: 350px;">
+        <div style="border-left: 4px solid ${markerColor}; padding-left: 10px; margin-bottom: 10px;">
+          <h3 style="margin: 0 0 5px 0; color: #1e293b; font-size: 1.1rem;">🚨 ${tr.requests.title || 'Help Request'}</h3>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">${dateStr}</p>
+        </div>
+        <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.name || 'Name'}:</strong> ${request.name}</p>
+        <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.phone || 'Phone'}:</strong> <a href="tel:${request.phone}" style="color: #667eea; text-decoration: none;">${request.phone}</a></p>
+        <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.location || 'Location'}:</strong> ${request.location}</p>
+        <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.people || 'People'}:</strong> ${request.numberOfPeople}</p>
+        ${urgencyBadgeHtml}
+        <div style="margin: 10px 0;">
+          <strong style="color: #475569; display: block; margin-bottom: 5px;">${tr.requests.needs || 'Urgent Needs'}:</strong>
+          <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+            ${urgentNeedsHtml}
+          </div>
+        </div>
+        ${request.additionalInfo ? `<p style="margin: 10px 0; padding: 8px; background: #f8fafc; border-radius: 4px; color: #64748b; font-size: 0.9rem;"><strong>${tr.requests.additionalInfo || 'Additional Info'}:</strong> ${request.additionalInfo}</p>` : ''}
+        ${imageHtml}
+        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+          <a href="tel:${request.phone}" style="display: inline-block; padding: 8px 16px; background: ${markerColor}; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; flex: 1; text-align: center; min-width: 100px;">📞 ${tr.requests.call || 'Call'}</a>
+          <a href="https://www.google.com/maps?q=${request.latitude},${request.longitude}" target="_blank" style="display: inline-block; padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; flex: 1; text-align: center; min-width: 100px;">📍 ${tr.requests.shareLocation || 'Share Location'}</a>
+        </div>
+      </div>
+    `
+    
+    // Create info window
+    const infoWindow = new google.maps.InfoWindow({
+      content: infoWindowContent
+    })
+    
+    // Add click listener to marker
+    marker.addListener('click', () => {
+      infoWindow.open(dashboardMap, marker)
+    })
+    
+    markers.push(marker)
+    bounds.extend({ lat: request.latitude, lng: request.longitude })
+  })
+}
+
+// Display Centers Table
+function displayCentersTable(): void {
+  const tableBody = document.querySelector<HTMLTableSectionElement>('#centers-table-body')
+  if (!tableBody) return
+
+  const tr = t()
+
+  tableBody.innerHTML = disasterCenters.map(center => {
+    const imageCell = center.image ? `
+      <div class="center-image-wrapper">
+        <img src="${center.image}" 
+             alt="${center.name}" 
+             class="center-image-thumbnail"
+             onclick="openCenterImageModal('${center.image}', '${center.name}')"
+             onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'no-image\\'>📷</div>'">
+        <div class="image-hover-overlay">
+          <span>👁️ View</span>
+        </div>
+      </div>
+    ` : '<div class="no-image">📷</div>'
+    
+    const additionalInfoCell = center.additionalInfo 
+      ? `<td><div class="additional-info-cell" title="${center.additionalInfo}">${center.additionalInfo.length > 50 ? center.additionalInfo.substring(0, 50) + '...' : center.additionalInfo}</div></td>`
+      : '<td><span style="color: #94a3b8;">-</span></td>'
+    
+    return `
+    <tr>
+      <td>
+        <div class="center-name-cell">
+          <div class="center-image-cell">${imageCell}</div>
+          <div class="center-name-content">
+            <strong>${center.name}</strong>
+          </div>
+        </div>
+      </td>
+      <td>${center.address}</td>
+      <td><a href="tel:${center.phone}">${center.phone}</a></td>
+      <td>${center.capacity}</td>
+      <td><span class="status-badge status-${center.status}">${tr.status[center.status]}</span></td>
+      <td>${center.services.join(', ')}</td>
+      ${additionalInfoCell}
+      <td>
+        <button class="btn-action" data-lat="${center.latitude}" data-lng="${center.longitude}" title="${tr.centers.viewOnMap}">🗺️</button>
+        <a href="tel:${center.phone}" class="btn-action" title="${tr.centers.call}">📞</a>
+      </td>
+    </tr>
+  `
+  }).join('')
+  
+  // Add center image modal
+  addCenterImageModal()
+
+  tableBody.querySelectorAll('.btn-action[data-lat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
+      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat, lng })
+        dashboardMap.setZoom(15)
+        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
+        if (overviewNav) (overviewNav as HTMLElement).click()
+        
+        // Open info window for the marker at this location
+        const marker = markers.find(m => {
+          const pos = m.getPosition()
+          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
+        })
+        if (marker) {
+          // Trigger click on marker to open info window
+          google.maps.event.trigger(marker, 'click')
+        }
+      }
+    })
+  })
+}
+
+// Filter Centers Table
+function filterCentersTable(searchTerm: string): void {
+  const tableBody = document.querySelector<HTMLTableSectionElement>('#centers-table-body')
+  if (!tableBody) return
+  const rows = tableBody.querySelectorAll('tr')
+  rows.forEach(row => {
+    const text = row.textContent?.toLowerCase() || ''
+    row.style.display = text.includes(searchTerm) ? '' : 'none'
+  })
+}
+
+// Display Help Requests
+function displayHelpRequests(container: HTMLElement, requests: any[] = []): void {
+  const requestsContainer = container.querySelector<HTMLDivElement>('#requests-container')
+  if (!requestsContainer) return
+
+  const tr = t()
+
+  if (requests.length === 0) {
+    requestsContainer.innerHTML = `<p style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</p>`
+    return
+  }
+
+  // Sort by timestamp (newest first) - requests should already be sorted from API
+  const sorted = [...requests].sort((a: any, b: any) => {
+    const dateA = new Date(a.timestamp || a.createdAt || 0).getTime()
+    const dateB = new Date(b.timestamp || b.createdAt || 0).getTime()
+    return dateB - dateA
+  })
+
+  requestsContainer.innerHTML = sorted.map((req: any, i: number) => {
+    const date = new Date(req.timestamp || req.createdAt || Date.now())
+    const needsIcons: Record<string, string> = {
+      shelter: '🏠',
+      food: '🍽️',
+      medical: '🏥',
+      clothing: '👕',
+      transportation: '🚗'
+    }
+    
+    return `
+      <div class="request-card">
+        <div class="request-header">
+          <div class="request-number">
+            <span class="request-icon">📋</span>
+            <strong>Request #${i + 1}</strong>
+          </div>
+          <span class="request-date">${date.toLocaleString()}</span>
+        </div>
+        <div class="request-body">
+          <div class="request-field">
+            <span class="field-icon">👤</span>
+            <div class="field-content">
+              <strong data-i18n="requests.name">${tr.requests.name}:</strong>
+              <span>${req.name}</span>
+            </div>
+          </div>
+          <div class="request-field">
+            <span class="field-icon">📞</span>
+            <div class="field-content">
+              <strong data-i18n="requests.phone">${tr.requests.phone}:</strong>
+              <a href="tel:${req.phone}" class="phone-link">${req.phone}</a>
+            </div>
+          </div>
+          <div class="request-field">
+            <span class="field-icon">📍</span>
+            <div class="field-content">
+              <strong data-i18n="requests.location">${tr.requests.location}:</strong>
+              <span>${req.location}</span>
+              ${req.latitude && req.longitude ? `
+                <a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" class="map-link" title="View on Google Maps">
+                  🗺️ View on Map
+                </a>
+              ` : ''}
+            </div>
+          </div>
+          <div class="request-field">
+            <span class="field-icon">👥</span>
+            <div class="field-content">
+              <strong data-i18n="requests.people">${tr.requests.people}:</strong>
+              <span class="people-count">${req.numberOfPeople}</span>
+            </div>
+          </div>
+          <div class="request-field request-needs">
+            <span class="field-icon">⚠️</span>
+            <div class="field-content">
+              <strong data-i18n="requests.needs">${tr.requests.needs}:</strong>
+              <div class="needs-tags">
+                ${req.urgentNeeds.map((need: string) => `
+                  <span class="need-tag" title="${need}">
+                    ${needsIcons[need] || '📌'} ${need}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+          ${req.urgencyLevel ? `
+            <div class="request-field">
+              <span class="field-icon">🚨</span>
+              <div class="field-content">
+                <strong>Urgency Level:</strong>
+                <span class="urgency-badge urgency-${req.urgencyLevel}">${req.urgencyLevel.charAt(0).toUpperCase() + req.urgencyLevel.slice(1)}</span>
+              </div>
+            </div>
+          ` : ''}
+          ${req.additionalInfo ? `
+            <div class="request-field request-info">
+              <span class="field-icon">📝</span>
+              <div class="field-content">
+                <strong data-i18n="requests.additionalInfo">${tr.requests.additionalInfo}:</strong>
+                <p class="info-text">${req.additionalInfo}</p>
+              </div>
+            </div>
+          ` : ''}
+          ${req.verificationImage ? `
+            <div class="request-field request-image-field">
+              <span class="field-icon">📷</span>
+              <div class="field-content">
+                <strong>Verification Image (Sri Lanka Flood Disaster):</strong>
+                <div class="verification-image-container">
+                  <img src="${req.verificationImage}" 
+                       alt="Verification Image - Sri Lanka Flood Disaster" 
+                       class="verification-image"
+                       onclick="openImageModal('${req.verificationImage}')">
+                  <div class="image-overlay">
+                    <span class="overlay-text">Click to view full size</span>
+                    <span class="overlay-icon">🔍</span>
+                  </div>
+                </div>
+                <p class="image-note">📸 Image uploaded for verification</p>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `
+  }).join('')
+  
+  // Add modal for full-size image viewing
+  addImageModal()
+}
+
+// Add center image modal
+function addCenterImageModal(): void {
+  // Remove existing modal if any
+  const existingModal = document.getElementById('center-image-modal')
+  if (existingModal) existingModal.remove()
+  
+  const modal = document.createElement('div')
+  modal.id = 'center-image-modal'
+  modal.className = 'image-modal'
+  modal.innerHTML = `
+    <div class="modal-overlay" onclick="closeCenterImageModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeCenterImageModal()">✕</button>
+      <img id="center-modal-image" src="" alt="Disaster Center Image">
+      <p class="modal-caption" id="center-modal-caption">Disaster Center</p>
+    </div>
+  `
+  document.body.appendChild(modal)
+  
+  // Add global functions for modal
+  ;(window as any).openCenterImageModal = (imageSrc: string, centerName: string) => {
+    const modal = document.getElementById('center-image-modal')
+    const modalImage = document.getElementById('center-modal-image') as HTMLImageElement
+    const modalCaption = document.getElementById('center-modal-caption')
+    if (modal && modalImage && modalCaption) {
+      modalImage.setAttribute('src', imageSrc)
+      modalCaption.textContent = centerName
+      modal.classList.add('active')
+      document.body.style.overflow = 'hidden'
+    }
+  }
+  
+  ;(window as any).closeCenterImageModal = () => {
+    const modal = document.getElementById('center-image-modal')
+    if (modal) {
+      modal.classList.remove('active')
+      document.body.style.overflow = ''
+    }
+  }
+}
+
+// Add image modal for full-size viewing
+function addImageModal(): void {
+  // Remove existing modal if any
+  const existingModal = document.getElementById('image-modal')
+  if (existingModal) existingModal.remove()
+  
+  const modal = document.createElement('div')
+  modal.id = 'image-modal'
+  modal.className = 'image-modal'
+  modal.innerHTML = `
+    <div class="modal-overlay" onclick="closeImageModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeImageModal()">✕</button>
+      <img id="modal-image" src="" alt="Full size verification image">
+      <p class="modal-caption">Sri Lanka Flood Disaster - Verification Image</p>
+    </div>
+  `
+  document.body.appendChild(modal)
+  
+  // Add global functions for modal
+  ;(window as any).openImageModal = (imageSrc: string) => {
+    const modal = document.getElementById('image-modal')
+    const modalImage = document.getElementById('modal-image')
+    if (modal && modalImage) {
+      modalImage.setAttribute('src', imageSrc)
+      modal.classList.add('active')
+      document.body.style.overflow = 'hidden'
+    }
+  }
+  
+  ;(window as any).closeImageModal = () => {
+    const modal = document.getElementById('image-modal')
+    if (modal) {
+      modal.classList.remove('active')
+      document.body.style.overflow = ''
+    }
+  }
+}
+

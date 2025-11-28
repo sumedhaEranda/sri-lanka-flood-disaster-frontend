@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <title>Sri Lanka Flood Disaster - Help Request</title>
+  </head>
+  <body>
+    <div id="app">Loading...</div>
+    <!-- Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCWC3jzv7Pccpd6lMD0t9H5h6KU2g7A6jY&libraries=places&callback=initGoogleMaps" async defer></script>
+    <script>
+      // Google Maps initialization callback
+      window.initGoogleMaps = function() {
+        console.log('Google Maps loaded successfully');
+        window.googleMapsLoaded = true;
+        // Trigger custom event
+        window.dispatchEvent(new Event('googlemapsloaded'));
+      };
+      
+      // Error handler for Google Maps
+      window.gm_authFailure = function() {
+        console.error('Google Maps authentication failed. Please check your API key.');
+        window.googleMapsError = true;
+        window.dispatchEvent(new Event('googlemapserror'));
+      };
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
