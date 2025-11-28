@@ -1092,42 +1092,4 @@ function addCenterImageModal(): void {
   }
 }
 
-// Add image modal for full-size viewing
-function addImageModal(): void {
-  // Remove existing modal if any
-  const existingModal = document.getElementById('image-modal')
-  if (existingModal) existingModal.remove()
-  
-  const modal = document.createElement('div')
-  modal.id = 'image-modal'
-  modal.className = 'image-modal'
-  modal.innerHTML = `
-    <div class="modal-overlay" onclick="closeImageModal()"></div>
-    <div class="modal-content">
-      <button class="modal-close" onclick="closeImageModal()">✕</button>
-      <img id="modal-image" src="" alt="Full size verification image">
-      <p class="modal-caption">Sri Lanka Flood Disaster - Verification Image</p>
-    </div>
-  `
-  document.body.appendChild(modal)
-  
-  // Add global functions for modal
-  ;(window as any).openImageModal = (imageSrc: string) => {
-    const modal = document.getElementById('image-modal')
-    const modalImage = document.getElementById('modal-image')
-    if (modal && modalImage) {
-      modalImage.setAttribute('src', imageSrc)
-      modal.classList.add('active')
-      document.body.style.overflow = 'hidden'
-    }
-  }
-  
-  ;(window as any).closeImageModal = () => {
-    const modal = document.getElementById('image-modal')
-    if (modal) {
-      modal.classList.remove('active')
-      document.body.style.overflow = ''
-    }
-  }
-}
 
