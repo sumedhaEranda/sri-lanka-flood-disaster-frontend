@@ -149,7 +149,6 @@ export function createHomelessHelpForm(): string {
       <div id="success-message" class="message success-message hidden">
         <h2 data-i18n="helpForm.success">✅ ${tr.helpForm.success}</h2>
         <p data-i18n="helpForm.successMessage">${tr.helpForm.successMessage}</p>
-        <p class="emergency-contact" data-i18n="helpForm.emergencyContact">${tr.helpForm.emergencyContact}</p>
       </div>
       
       <div id="error-message" class="message error-message hidden">
