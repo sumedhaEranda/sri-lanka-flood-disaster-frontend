@@ -239,8 +239,13 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
   }
   
   // Automatically get location on form load
+  // Opening the form is considered user interaction, so this should work on both Android and iOS
   if (navigator.geolocation) {
-    getCurrentLocation(locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn, true)
+    // Use a small delay to ensure form and map are fully rendered
+    // This works because opening the form is a user interaction
+    setTimeout(() => {
+      getCurrentLocation(locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn, true)
+    }, 1000) // Increased delay to ensure map is ready
   }
   
   // Image upload handling
@@ -472,6 +477,23 @@ function initializeHelpFormMap(
   }
 }
 
+// Detect mobile device
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+// Detect iOS device
+function isIOSDevice(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+// Detect Android device
+function isAndroidDevice(): boolean {
+  return /Android/i.test(navigator.userAgent)
+}
+
 // Get current location
 async function getCurrentLocation(
   locationInput: HTMLInputElement | null,
@@ -486,23 +508,32 @@ async function getCurrentLocation(
     return
   }
 
+  const isMobile = isMobileDevice()
+  const isIOS = isIOSDevice()
+  const isAndroid = isAndroidDevice()
+
   if (button && !autoLoad) {
     button.disabled = true
-    button.innerHTML = '<span>⏳</span> <span>Getting Location...</span>'
+    const tr = t()
+    button.innerHTML = '<span>⏳</span> <span>' + (tr.helpForm.getLocation || 'Getting Location...') + '</span>'
   }
 
-  showLocationStatus(locationStatus, 'Getting your location...', 'loading')
+  const tr = t()
+  showLocationStatus(locationStatus, tr.helpForm.locationDetecting || 'Getting your location...', 'loading')
 
   try {
+    // Optimize geolocation options for mobile devices
+    const geoOptions: PositionOptions = {
+      enableHighAccuracy: isMobile, // Use high accuracy on mobile for better GPS
+      timeout: isMobile ? 15000 : 10000, // Longer timeout for mobile devices
+      maximumAge: isMobile ? 30000 : 0 // Accept cached position on mobile (30 seconds)
+    }
+
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         resolve,
         reject,
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        geoOptions
       )
     })
 
@@ -520,25 +551,54 @@ async function getCurrentLocation(
     }
     
     await updateLocationFromCoordinates(latitude, longitude, locationInput, locationStatus, latitudeInput, longitudeInput)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error getting location:', error)
-    let errorMessage = 'Unable to get your location. Please click on the map to set your location.'
+    const tr = t()
+    let errorMessage = tr.helpForm.locationError || 'Unable to get your location. Please click on the map to set your location.'
     
-    if (error instanceof GeolocationPositionError) {
+    // Check if it's a GeolocationPositionError
+    // Note: isIOS, isAndroid, and isMobile are already declared at the top of the function
+    if (error && typeof error.code === 'number') {
       switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage = 'Location access denied. Please allow location access or click on the map to set your location.'
+        case 1: // PERMISSION_DENIED
+          if (isIOS) {
+            errorMessage = 'Location access denied. Please go to Settings > Safari > Location Services and allow location access for this website, or click on the map to set your location manually.'
+          } else if (isAndroid) {
+            errorMessage = 'Location access denied. Please allow location access in Chrome settings (Settings > Site Settings > Location), or click on the map to set your location manually.'
+          } else {
+            errorMessage = 'Location access denied. Please allow location access in your browser settings, or click on the map to set your location manually.'
+          }
           break
-        case error.POSITION_UNAVAILABLE:
-          errorMessage = 'Location information unavailable. Please click on the map to set your location.'
+        case 2: // POSITION_UNAVAILABLE
+          if (isMobile) {
+            errorMessage = 'Location information unavailable. Please make sure GPS/Location Services are enabled on your device, or click on the map to set your location manually.'
+          } else {
+            errorMessage = 'Location information unavailable. Please click on the map to set your location.'
+          }
           break
-        case error.TIMEOUT:
-          errorMessage = 'Location request timed out. Please click on the map to set your location.'
+        case 3: // TIMEOUT
+          if (isMobile) {
+            errorMessage = 'Location request timed out. Please make sure GPS/Location Services are enabled and try again, or click on the map to set your location manually.'
+          } else {
+            errorMessage = 'Location request timed out. Please click on the map to set your location.'
+          }
           break
       }
     }
     
     showLocationStatus(locationStatus, errorMessage, 'error')
+    
+    // If permission denied and auto-load, don't show error immediately
+    // Let user click the button to try again
+    if (autoLoad && error && error.code === 1) {
+      // Clear the error status after a moment so user can try manually
+      setTimeout(() => {
+        if (locationStatus) {
+          locationStatus.textContent = ''
+          locationStatus.className = 'location-status'
+        }
+      }, 3000)
+    }
   } finally {
     if (button && !autoLoad) {
       button.disabled = false

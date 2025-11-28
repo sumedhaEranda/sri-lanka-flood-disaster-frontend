@@ -18,26 +18,9 @@ window.addEventListener('languagechange', ((e: CustomEvent<{ language: string }>
   document.documentElement.lang = e.detail.language
 }) as EventListener)
 
-// Request location permission when page loads
-if (navigator.geolocation) {
-  // Request location permission immediately when page loads
-  // This allows the browser to prompt for permission early
-  navigator.geolocation.getCurrentPosition(
-    () => {
-      // Permission granted - location will be used when form is opened
-      console.log('Location permission granted')
-    },
-    (error) => {
-      // Permission denied or error - user can still manually set location
-      console.log('Location permission:', error.code === 1 ? 'denied' : 'unavailable')
-    },
-    {
-      enableHighAccuracy: false, // Use less accurate but faster method for permission request
-      timeout: 5000,
-      maximumAge: 0
-    }
-  )
-}
+// Note: Location permission is requested when user opens the help form
+// iOS Safari requires user interaction before requesting location permission
+// So we don't request it automatically on page load
 
 const app = document.querySelector<HTMLDivElement>('#app')
 
