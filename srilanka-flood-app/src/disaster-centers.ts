@@ -904,7 +904,7 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     const dateStr = date.toLocaleString()
     
     // Verification status (check verified property, default to false if not set)
-    const isVerified = request.verified === true || request.verified === 'true'
+    const isVerified = request.verified === true
     const verificationStatusHtml = isVerified
       ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">
           ✓ ${tr.requests.verified || 'Verified'}
