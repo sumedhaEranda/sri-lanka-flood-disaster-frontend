@@ -1,5 +1,5 @@
 import { t, getCurrentLanguage, setLanguage, type Language } from './i18n.ts'
-import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, type DisasterCenter, type Statistics, type HelpRequest } from './api.ts'
+import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, getCurrentUser, isAuthenticated, type DisasterCenter, type Statistics, type HelpRequest } from './api.ts'
 
 // Export DisasterCenter type for use in other files
 export type { DisasterCenter }
@@ -33,8 +33,10 @@ declare const google: any
 
 let dashboardMap: any = null
 let markers: any[] = []
+let helpRequestMarkers: any[] = [] // Track help request markers separately
 let currentInfoWindow: any = null // Track currently open InfoWindow
 let markerJustClicked: boolean = false // Flag to prevent map click from closing just-opened InfoWindow
+let dashboardContainer: HTMLElement | null = null // Store dashboard container for verification
 
 // Create Dashboard HTML
 export function createDashboardHTML(): string {
@@ -189,6 +191,7 @@ export function createDashboardHTML(): string {
                   <th data-i18n="requests.needs">${tr.requests.needs}</th>
                   <th>Urgency</th>
                   <th>Date</th>
+                  <th data-i18n="requests.verificationStatus">${tr.requests.verificationStatus || 'Verification'}</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -355,6 +358,9 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
     })
   }
 
+  // Store container for use in marker handlers
+  dashboardContainer = container
+
   // Load data from API
   loadDashboardData(container)
 
@@ -495,6 +501,23 @@ async function loadHelpRequests(container: HTMLElement): Promise<void> {
     displayHelpRequests(container, response.data)
     
     // Update map with help request markers if map is already initialized
+    // Clear old help request markers first to avoid duplicates
+    if (dashboardMap && typeof google !== 'undefined' && google.maps) {
+      // Store help request markers before clearing
+      const oldHelpRequestMarkers = [...helpRequestMarkers]
+      
+      // Remove old help request markers from map
+      oldHelpRequestMarkers.forEach(marker => {
+        marker.setMap(null)
+      })
+      
+      // Remove old help request markers from main markers array
+      markers = markers.filter(m => !oldHelpRequestMarkers.includes(m))
+      
+      // Clear the help request markers array
+      helpRequestMarkers = []
+    }
+    
     // Don't change camera position - just add markers
     const mapContainer = container.querySelector<HTMLDivElement>('#dashboard-map')
     if (mapContainer && dashboardMap && typeof google !== 'undefined' && google.maps) {
@@ -667,17 +690,35 @@ function initializeMap(mapContainer: HTMLDivElement): void {
         </div>
       ` : ''
       
+      // Verification status
+      const verificationStatusHtml = center.verified 
+        ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">
+            ✓ ${tr.centers.verified || 'Verified'}
+          </span>`
+        : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #ef4444; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">
+            ✗ ${tr.centers.unverified || 'Unverified'}
+          </span>`
+      
       const infoWindowContent = `
         <div style="padding: 10px; min-width: 250px; max-width: 350px;">
           ${imageHtml}
           <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 1.1rem;">${center.name}</h3>
+          <div style="margin-bottom: 10px;">${verificationStatusHtml}</div>
           <p style="margin: 5px 0; color: #475569;">📍 ${center.address}</p>
           <p style="margin: 5px 0; color: #475569;">📞 <a href="tel:${center.phone}" style="color: #667eea; text-decoration: none;">${center.phone}</a></p>
           <p style="margin: 5px 0; color: #475569;">👥 ${tr.centers.capacity}: ${center.capacity}</p>
           <p style="margin: 5px 0; color: #475569;">${tr.centers.status}: <strong style="color: ${color};">${tr.status[center.status]}</strong></p>
           <p style="margin: 5px 0; color: #475569;">${tr.centers.services}: ${center.services.join(', ')}</p>
           ${additionalInfoHtml}
-          <a href="tel:${center.phone}" style="display: inline-block; margin-top: 10px; padding: 8px 16px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">📞 ${tr.centers.call}</a>
+          <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+            <a href="tel:${center.phone}" style="display: inline-block; padding: 8px 16px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; flex: 1; text-align: center; min-width: 100px;">📞 ${tr.centers.call}</a>
+            <a href="https://www.google.com/maps?q=${center.latitude},${center.longitude}" target="_blank" style="display: inline-block; padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; flex: 1; text-align: center; min-width: 100px;">📍 ${tr.centers.viewOnMap || 'Share Location'}</a>
+            ${center.id ? `
+              <button class="verify-center-btn" data-id="${center.id}" data-verified="${center.verified ? 'true' : 'false'}" style="padding: 8px 16px; background: ${center.verified ? '#ef4444' : '#10b981'}; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; flex: 1; min-width: 100px;">
+                ${center.verified ? '❌ ' + (tr.centers.unverify || 'Unverify') : '✓ ' + (tr.centers.verify || 'Verify')}
+              </button>
+            ` : ''}
+          </div>
         </div>
       `
 
@@ -705,6 +746,55 @@ function initializeMap(mapContainer: HTMLDivElement): void {
         // Open new InfoWindow and track it
         infoWindow.open(dashboardMap, marker)
         currentInfoWindow = infoWindow
+        
+        // Add verify button handler after info window is opened
+        setTimeout(() => {
+          const verifyBtn = document.querySelector(`.verify-center-btn[data-id="${center.id}"]`)
+          if (verifyBtn) {
+            verifyBtn.addEventListener('click', async (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              
+              const centerId = (verifyBtn as HTMLElement).dataset.id
+              const isVerified = (verifyBtn as HTMLElement).dataset.verified === 'true'
+              
+              if (!centerId) return
+              
+              // Get current user if authenticated (optional)
+              const currentUser = getCurrentUser() || { id: 'anonymous', name: 'Anonymous User', email: '' }
+              
+              // Disable button during request
+              verifyBtn.disabled = true
+              ;(verifyBtn as HTMLElement).innerHTML = '⏳'
+              
+              try {
+                // Verify/unverify center
+                await verifyDisasterCenter(centerId, !isVerified, currentUser.id || currentUser.name)
+                
+                // Close info window
+                if (currentInfoWindow) {
+                  currentInfoWindow.close()
+                }
+                
+                // Reload disaster centers to update the map
+                if (dashboardContainer) {
+                  await loadDashboardData(dashboardContainer)
+                }
+                
+                // Show success message
+                const message = !isVerified 
+                  ? (tr.centers.verified || 'Center verified successfully')
+                  : (tr.centers.unverified || 'Center unverified successfully')
+                console.log(message)
+              } catch (error: any) {
+                console.error('Error verifying center:', error)
+                alert(error.message || 'Failed to update verification status. Please try again.')
+                verifyBtn.disabled = false
+                ;(verifyBtn as HTMLElement).innerHTML = isVerified ? (tr.centers.unverify || 'Unverify') : (tr.centers.verify || 'Verify')
+              }
+            })
+          }
+        }, 100)
         
         // Reset flag after a short delay to allow map clicks to work again
         setTimeout(() => {
@@ -740,7 +830,14 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     bounds = new google.maps.LatLngBounds()
   }
   
-  helpRequests.forEach(request => {
+  // Filter to show only unverified requests on the map
+  const unverifiedRequests = helpRequests.filter(request => {
+    // Show only unverified requests (verified !== true)
+    // This includes: verified === false, verified === undefined, verified === null
+    return request.verified !== true
+  })
+  
+  unverifiedRequests.forEach(request => {
     if (!request.latitude || !request.longitude) return
     
     // Determine marker color based on urgency level
@@ -809,6 +906,16 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     const date = request.timestamp ? new Date(request.timestamp) : new Date()
     const dateStr = date.toLocaleString()
     
+    // Verification status (check verified property, default to false if not set)
+    const isVerified = request.verified === true || request.verified === 'true'
+    const verificationStatusHtml = isVerified
+      ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">
+          ✓ ${tr.requests.verified || 'Verified'}
+        </span>`
+      : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #ef4444; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px;">
+          ✗ ${tr.requests.unverified || 'Unverified'}
+        </span>`
+    
     // Create info window content
     const infoWindowContent = `
       <div style="padding: 10px; min-width: 250px; max-width: 350px;">
@@ -816,6 +923,7 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
           <h3 style="margin: 0 0 5px 0; color: #1e293b; font-size: 1.1rem;">🚨 ${tr.requests.title || 'Help Request'}</h3>
           <p style="margin: 0; color: #64748b; font-size: 0.85rem;">${dateStr}</p>
         </div>
+        <div style="margin-bottom: 8px;">${verificationStatusHtml}</div>
         <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.name || 'Name'}:</strong> ${request.name}</p>
         <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.phone || 'Phone'}:</strong> <a href="tel:${request.phone}" style="color: #667eea; text-decoration: none;">${request.phone}</a></p>
         <p style="margin: 5px 0; color: #475569;"><strong>${tr.requests.location || 'Location'}:</strong> ${request.location}</p>
@@ -829,9 +937,14 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
         </div>
         ${request.additionalInfo ? `<p style="margin: 10px 0; padding: 8px; background: #f8fafc; border-radius: 4px; color: #64748b; font-size: 0.9rem;"><strong>${tr.requests.additionalInfo || 'Additional Info'}:</strong> ${request.additionalInfo}</p>` : ''}
         ${imageHtml}
-        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
           <a href="tel:${request.phone}" style="display: inline-block; padding: 8px 16px; background: ${markerColor}; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; flex: 1; text-align: center; min-width: 100px;">📞 ${tr.requests.call || 'Call'}</a>
           <a href="https://www.google.com/maps?q=${request.latitude},${request.longitude}" target="_blank" style="display: inline-block; padding: 8px 16px; background: #667eea; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; flex: 1; text-align: center; min-width: 100px;">📍 ${tr.requests.shareLocation || 'Share Location'}</a>
+          ${request.id ? `
+            <button class="verify-request-btn" data-id="${request.id}" data-verified="${isVerified ? 'true' : 'false'}" data-request='${JSON.stringify(request).replace(/'/g, "&apos;")}' style="padding: 8px 16px; background: ${isVerified ? '#ef4444' : '#10b981'}; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; flex: 1; min-width: 100px;">
+              ${isVerified ? '❌ ' + (tr.requests.unverify || 'Unverify') : '✓ ' + (tr.requests.verify || 'Verify')}
+            </button>
+          ` : ''}
         </div>
       </div>
     `
@@ -861,6 +974,49 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
       infoWindow.open(dashboardMap, marker)
       currentInfoWindow = infoWindow
       
+      // Add verify button handler after info window is opened
+      if (request.id) {
+        setTimeout(() => {
+          const verifyBtn = document.querySelector(`.verify-request-btn[data-id="${request.id}"]`)
+          if (verifyBtn) {
+            verifyBtn.addEventListener('click', (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              
+              const requestId = (verifyBtn as HTMLElement).dataset.id
+              const isVerified = (verifyBtn as HTMLElement).dataset.verified === 'true'
+              const requestData = (verifyBtn as HTMLElement).dataset.request
+              
+              if (!requestId) return
+              
+              // Get current user if authenticated (optional)
+              const currentUser = getCurrentUser() || { id: 'anonymous', name: 'Anonymous User', email: '' }
+              
+              // Parse request data
+              let requestObj: any = request // Use the request object from closure
+              if (requestData) {
+                try {
+                  requestObj = JSON.parse(requestData.replace(/&apos;/g, "'"))
+                } catch (e) {
+                  console.error('Error parsing request data:', e)
+                  requestObj = request // Fallback to original request
+                }
+              }
+              
+              // Close info window
+              if (currentInfoWindow) {
+                currentInfoWindow.close()
+              }
+              
+              // Show verification modal (same as table)
+              if (dashboardContainer) {
+                showVerificationModal(requestId, requestObj, isVerified, currentUser, dashboardContainer)
+              }
+            })
+          }
+        }, 100)
+      }
+      
       // Reset flag after a short delay to allow map clicks to work again
       setTimeout(() => {
         markerJustClicked = false
@@ -868,6 +1024,7 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     })
     
     markers.push(marker)
+    helpRequestMarkers.push(marker) // Track help request markers separately
     bounds.extend({ lat: request.latitude, lng: request.longitude })
   })
 }
@@ -1025,9 +1182,24 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
         <td>${urgencyBadge}</td>
         <td>${date.toLocaleString()}</td>
         <td>
+          ${req.verified 
+            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
+                ✓ ${tr.requests.verified || 'Verified'}
+              </span>`
+            : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #ef4444; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">
+                ✗ ${tr.requests.unverified || 'Unverified'}
+              </span>`
+          }
+        </td>
+        <td>
           <a href="tel:${req.phone}" class="btn-action" title="${tr.requests.call}">📞</a>
           ${req.latitude && req.longitude ? `
             <button class="btn-action" data-lat="${req.latitude}" data-lng="${req.longitude}" title="View on Map">🗺️</button>
+          ` : ''}
+          ${req.id ? `
+            <button class="btn-action verify-btn" data-id="${req.id}" data-verified="${req.verified ? 'true' : 'false'}" data-request='${JSON.stringify(req).replace(/'/g, "&apos;")}' title="${req.verified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')}">
+              ${req.verified ? '❌' : '✓'}
+            </button>
           ` : ''}
         </td>
       </tr>
@@ -1056,6 +1228,217 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
       }
     })
   })
+  
+  // Add click handlers for verify/unverify buttons
+  tableBody.querySelectorAll('.verify-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const requestId = (btn as HTMLElement).dataset.id
+      const isVerified = (btn as HTMLElement).dataset.verified === 'true'
+      const requestData = (btn as HTMLElement).dataset.request
+      
+      console.log('Verify button clicked', { requestId, isVerified, requestData })
+      
+      if (!requestId) {
+        console.error('No request ID found')
+        return
+      }
+      
+      // Get current user if authenticated (optional)
+      const currentUser = getCurrentUser() || { id: 'anonymous', name: 'Anonymous User', email: '' }
+      
+      // Parse request data
+      let request: any = null
+      if (requestData) {
+        try {
+          request = JSON.parse(requestData.replace(/&apos;/g, "'"))
+        } catch (e) {
+          console.error('Error parsing request data:', e)
+        }
+      }
+      
+      console.log('Showing verification modal', { requestId, request, currentUser })
+      
+      // Show verification modal/form (works without login)
+      showVerificationModal(requestId, request, isVerified, currentUser, container)
+    })
+  })
+}
+
+// Show verification modal/form - works without login
+function showVerificationModal(
+  requestId: string,
+  request: any,
+  isVerified: boolean,
+  currentUser: any,
+  container: HTMLElement
+): void {
+  const tr = t()
+  
+  // Remove existing modal if any
+  const existingModal = document.getElementById('verification-modal')
+  if (existingModal) existingModal.remove()
+  
+  // Create modal
+  const modal = document.createElement('div')
+  modal.id = 'verification-modal'
+  modal.className = 'image-modal active' // Add 'active' class to show modal immediately
+  modal.innerHTML = `
+    <div class="modal-overlay" onclick="closeVerificationModal()"></div>
+    <div class="modal-content verification-modal-content" style="max-width: 95vw; width: 95vw; max-height: 90vh; overflow-y: auto; padding: 2rem;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #e2e8f0;">
+        <h2 style="margin: 0; color: #1e293b; font-size: 1.5rem;">${isVerified ? (tr.requests.unverify || 'Unverify Request') : (tr.requests.verifyRequest || 'Verify Request')}</h2>
+        <button class="modal-close" onclick="closeVerificationModal()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        ${request ? `
+          <div class="verification-request-details" style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 1rem 0; color: #1e293b; font-size: 1.2rem;">${tr.requests.requestDetails || 'Request Details'}</h3>
+            <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
+              <strong style="color: #475569;">${tr.requests.name || 'Name'}:</strong>
+              <span style="color: #1e293b;">${request.name || 'N/A'}</span>
+            </div>
+            <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
+              <strong style="color: #475569;">${tr.requests.phone || 'Phone'}:</strong>
+              <span style="color: #1e293b;"><a href="tel:${request.phone}" style="color: #667eea; text-decoration: none;">${request.phone || 'N/A'}</a></span>
+            </div>
+            <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
+              <strong style="color: #475569;">${tr.requests.location || 'Location'}:</strong>
+              <span style="color: #1e293b;">${request.location || 'N/A'}</span>
+            </div>
+            <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
+              <strong style="color: #475569;">${tr.requests.people || 'People'}:</strong>
+              <span style="color: #1e293b;">${request.numberOfPeople || 'N/A'}</span>
+            </div>
+            <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
+              <strong style="color: #475569;">Urgency:</strong>
+              <span style="color: #1e293b;">${request.urgencyLevel ? request.urgencyLevel.charAt(0).toUpperCase() + request.urgencyLevel.slice(1) : 'N/A'}</span>
+            </div>
+            ${request.urgentNeeds && request.urgentNeeds.length > 0 ? `
+              <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
+                <strong style="color: #475569;">${tr.requests.needs || 'Needs'}:</strong>
+                <span style="color: #1e293b;">${request.urgentNeeds.join(', ')}</span>
+              </div>
+            ` : ''}
+            ${request.additionalInfo ? `
+              <div class="detail-row" style="padding: 0.75rem 0;">
+                <strong style="color: #475569; display: block; margin-bottom: 0.5rem;">${tr.requests.additionalInfo || 'Additional Info'}:</strong>
+                <span style="color: #1e293b;">${request.additionalInfo}</span>
+              </div>
+            ` : ''}
+            ${request.verificationImage ? `
+              <div class="detail-row" style="padding: 0.75rem 0; margin-top: 1rem;">
+                <strong style="color: #475569; display: block; margin-bottom: 0.5rem;">Verification Image:</strong>
+                <div class="verification-image-preview">
+                  <img src="${request.verificationImage}" alt="Verification" onclick="window.open('${request.verificationImage}', '_blank')" style="max-width: 200px; max-height: 200px; cursor: pointer; border-radius: 4px; border: 2px solid #e2e8f0;">
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        
+        <div class="verification-form-group" style="margin-bottom: 1.5rem;">
+          <label for="verification-notes" style="display: block; margin-bottom: 0.5rem; color: #475569; font-weight: 600;">${tr.requests.verificationNotes || 'Verification Notes'} <span style="color: #94a3b8;">(${tr.requests.cancel || 'Optional'})</span></label>
+          <textarea id="verification-notes" rows="4" placeholder="${tr.requests.verificationNotesPlaceholder || 'Add any notes about this verification (optional)'}" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px; font-family: inherit; font-size: 0.95rem; resize: vertical;"></textarea>
+        </div>
+        
+        <div class="verification-user-info" style="padding: 1rem; background: #f1f5f9; border-radius: 6px; margin-bottom: 1.5rem;">
+          <p style="margin: 0; color: #475569;"><strong>Verifying as:</strong> <span style="color: #1e293b;">${currentUser?.name || currentUser?.email || 'Anonymous User'}</span></p>
+        </div>
+      </div>
+      
+      <div class="modal-footer" style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1.5rem; border-top: 2px solid #e2e8f0;">
+        <button class="btn-secondary" onclick="closeVerificationModal()" style="padding: 0.75rem 1.5rem; background: #f1f5f9; color: #475569; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">${tr.requests.cancel || 'Cancel'}</button>
+        <button class="btn-primary verify-confirm-btn" data-id="${requestId}" data-verified="${isVerified}" style="padding: 0.75rem 1.5rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+          ${isVerified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')}
+        </button>
+      </div>
+    </div>
+  `
+  
+  document.body.appendChild(modal)
+  document.body.style.overflow = 'hidden'
+  
+  // Hide sidebar when modal is open
+  const sidebar = document.querySelector('.sidebar')
+  const sidebarNav = container.querySelector('#sidebar-nav')
+  if (sidebar) (sidebar as HTMLElement).style.display = 'none'
+  if (sidebarNav) (sidebarNav as HTMLElement).style.display = 'none'
+  
+  // Also hide the main content area background
+  const dashboard = container.querySelector('.dashboard')
+  if (dashboard) (dashboard as HTMLElement).style.opacity = '0.3'
+  
+  // Modal already has 'active' class, so it should be visible immediately
+  console.log('Verification modal created and shown', { modal, hasActive: modal.classList.contains('active') })
+  
+  // Add close function to window
+  ;(window as any).closeVerificationModal = () => {
+    const modal = document.getElementById('verification-modal')
+    if (modal) {
+      modal.classList.remove('active')
+      document.body.style.overflow = ''
+      
+      // Show sidebar again when modal closes
+      const sidebar = document.querySelector('.sidebar')
+      const sidebarNav = container.querySelector('#sidebar-nav')
+      if (sidebar) (sidebar as HTMLElement).style.display = ''
+      if (sidebarNav) (sidebarNav as HTMLElement).style.display = ''
+      
+      // Restore main content opacity
+      const dashboard = container.querySelector('.dashboard')
+      if (dashboard) (dashboard as HTMLElement).style.opacity = ''
+      
+      setTimeout(() => {
+        modal.remove()
+      }, 300) // Wait for animation
+    }
+  }
+  
+  // Handle verification confirmation
+  const confirmBtn = modal.querySelector('.verify-confirm-btn')
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async () => {
+      const requestId = (confirmBtn as HTMLElement).dataset.id
+      const isVerified = (confirmBtn as HTMLElement).dataset.verified === 'true'
+      
+      if (!requestId) return
+      
+      // Disable button
+      confirmBtn.disabled = true
+      ;(confirmBtn as HTMLElement).innerHTML = '⏳ Processing...'
+      
+      try {
+        // Verify/unverify request (works without login)
+        await verifyHelpRequest(requestId, !isVerified, currentUser?.id || currentUser?.name || 'anonymous')
+        
+        // Close modal
+        ;(window as any).closeVerificationModal()
+        
+        // Reload help requests and map markers
+        await loadHelpRequests(container)
+        
+        // Also reload dashboard data to ensure everything is in sync
+        if (dashboardContainer) {
+          await loadDashboardData(dashboardContainer)
+        }
+        
+        // Show success message
+        const message = !isVerified 
+          ? (tr.requests.verified || 'Request verified successfully')
+          : (tr.requests.unverified || 'Request unverified successfully')
+        console.log(message)
+      } catch (error: any) {
+        console.error('Error verifying request:', error)
+        alert(error.message || 'Failed to update verification status. Please try again.')
+        confirmBtn.disabled = false
+        ;(confirmBtn as HTMLElement).innerHTML = isVerified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')
+      }
+    })
+  }
 }
 
 // Add center image modal

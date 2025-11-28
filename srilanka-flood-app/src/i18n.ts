@@ -30,6 +30,8 @@ export interface Translations {
     limited: string
     full: string
     helpRequests: string
+    showOnlyRequests: string
+    showAll: string
   }
   centers: {
     title: string
@@ -44,8 +46,13 @@ export interface Translations {
     actions: string
     viewOnMap: string
     call: string
+    verified: string
+    unverified: string
+    verify: string
+    unverify: string
+    verificationStatus: string
   }
-  requests: {
+    requests: {
     title: string
     noRequests: string
     name: string
@@ -56,6 +63,16 @@ export interface Translations {
     additionalInfo: string
     call: string
     shareLocation: string
+    verified: string
+    unverified: string
+    verify: string
+    unverify: string
+    verificationStatus: string
+    verificationNotes: string
+    verificationNotesPlaceholder: string
+    verifyRequest: string
+    cancel: string
+    requestDetails: string
   }
   helpForm: {
     title: string
@@ -161,7 +178,9 @@ const translations: Record<Language, Translations> = {
       active: 'Active',
       limited: 'Limited',
       full: 'Full',
-      helpRequests: 'Help Requests'
+      helpRequests: 'Help Requests',
+      showOnlyRequests: 'Show Only Help Requests',
+      showAll: 'Show All'
     },
     centers: {
       title: 'All Disaster Centers',
@@ -175,7 +194,12 @@ const translations: Record<Language, Translations> = {
       additionalInfo: 'Additional Information',
       actions: 'Actions',
       viewOnMap: 'View on Map',
-      call: 'Call'
+      call: 'Call',
+      verified: 'Verified',
+      unverified: 'Unverified',
+      verify: 'Verify',
+      unverify: 'Unverify',
+      verificationStatus: 'Verification'
     },
     requests: {
       title: 'Recent Help Requests',
@@ -187,7 +211,17 @@ const translations: Record<Language, Translations> = {
       needs: 'Needs',
       additionalInfo: 'Additional Info',
       call: 'Call',
-      shareLocation: 'Share Location'
+      shareLocation: 'Share Location',
+      verified: 'Verified',
+      unverified: 'Unverified',
+      verify: 'Verify',
+      unverify: 'Unverify',
+      verificationStatus: 'Verification',
+      verificationNotes: 'Verification Notes',
+      verificationNotesPlaceholder: 'Add any notes about this verification (optional)',
+      verifyRequest: 'Verify Request',
+      cancel: 'Cancel',
+      requestDetails: 'Request Details'
     },
     helpForm: {
       title: 'Sri Lanka Flood Disaster - Help Request',
@@ -288,6 +322,8 @@ const translations: Record<Language, Translations> = {
     },
     map: {
       title: 'විපත් මධ්‍යස්ථාන සිතියම',
+      showOnlyRequests: 'උදව් ඉල්ලීම් පමණක් පෙන්වන්න',
+      showAll: 'සියල්ල පෙන්වන්න',
       active: 'සක්‍රිය',
       limited: 'සීමිත',
       full: 'පිරී ඇත',
@@ -298,6 +334,11 @@ const translations: Record<Language, Translations> = {
       search: 'මධ්‍යස්ථාන සොයන්න...',
       name: 'නම',
       location: 'ස්ථානය',
+      verified: 'සත්‍යාපනය කරන ලදී',
+      unverified: 'සත්‍යාපනය නොකළ',
+      verify: 'සත්‍යාපනය කරන්න',
+      unverify: 'සත්‍යාපනය ඉවත් කරන්න',
+      verificationStatus: 'සත්‍යාපන තත්වය',
       phone: 'දුරකථන',
       capacity: 'ධාරිතාව',
       status: 'තත්වය',
@@ -317,7 +358,12 @@ const translations: Record<Language, Translations> = {
       needs: 'අවශ්‍යතා',
       additionalInfo: 'අතිරේක තොරතුරු',
       call: 'ඇමතුම',
-      shareLocation: 'ස්ථානය බෙදාගන්න'
+      shareLocation: 'ස්ථානය බෙදාගන්න',
+      verified: 'සත්‍යාපනය කරන ලදී',
+      unverified: 'සත්‍යාපනය නොකළ',
+      verify: 'සත්‍යාපනය කරන්න',
+      unverify: 'සත්‍යාපනය ඉවත් කරන්න',
+      verificationStatus: 'සත්‍යාපන තත්වය'
     },
     helpForm: {
       title: 'ශ්‍රී ලංකා ගංවතුර විපත් - උදව් ඉල්ලීම',
