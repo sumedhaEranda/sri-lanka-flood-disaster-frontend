@@ -87,9 +87,6 @@ export function createDashboardHTML(): string {
             </button>
           </div>
         </nav>
-        <div class="sidebar-footer">
-          <p>🚨 <span data-i18n="sidebar.emergencyContact">${tr.sidebar.emergencyContact}</span></p>
-        </div>
       </aside>
       <main class="main-content">
         <header class="topbar">
