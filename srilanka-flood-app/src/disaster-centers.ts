@@ -1002,10 +1002,17 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
     }
     const urgencyBadge = `<span class="urgency-badge urgency-${urgencyLevel}" style="display: inline-block; padding: 4px 8px; background: ${urgencyColors[urgencyLevel] || '#ffc107'}; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">${urgencyLevel.charAt(0).toUpperCase() + urgencyLevel.slice(1)}</span>`
     
-    // Format location with map link
+    // Format location/address with map link
     const locationCell = req.latitude && req.longitude 
-      ? `<div>${req.location}<br><a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem;">🗺️ View on Map</a></div>`
-      : req.location
+      ? `<div style="max-width: 250px;">
+          <div style="margin-bottom: 4px; color: #475569; font-weight: 500;">📍 ${req.location || 'Location not specified'}</div>
+          <a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+            🗺️ View on Map
+          </a>
+        </div>`
+      : `<div style="max-width: 250px;">
+          <div style="color: #475569;">📍 ${req.location || 'Location not specified'}</div>
+        </div>`
     
     return `
       <tr>
