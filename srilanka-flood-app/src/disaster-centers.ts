@@ -34,6 +34,7 @@ declare const google: any
 let dashboardMap: any = null
 let markers: any[] = []
 let currentInfoWindow: any = null // Track currently open InfoWindow
+let markerJustClicked: boolean = false // Flag to prevent map click from closing just-opened InfoWindow
 
 // Create Dashboard HTML
 export function createDashboardHTML(): string {
@@ -583,6 +584,19 @@ function initializeMap(mapContainer: HTMLDivElement): void {
       // Explicitly set default camera position (center of Sri Lanka)
       dashboardMap.setCenter({ lat: 7.8731, lng: 80.7718 })
       dashboardMap.setZoom(8)
+      
+      // Close InfoWindow when clicking on the map (not on markers)
+      dashboardMap.addListener('click', () => {
+        // Don't close if a marker was just clicked (it will open its own InfoWindow)
+        if (markerJustClicked) {
+          markerJustClicked = false
+          return
+        }
+        if (currentInfoWindow) {
+          currentInfoWindow.close()
+          currentInfoWindow = null
+        }
+      })
     } catch (error) {
       console.error('Error initializing Google Map:', error)
       showMapError(mapContainer, `Error initializing map: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -665,6 +679,9 @@ function initializeMap(mapContainer: HTMLDivElement): void {
 
       // Add click listener to marker
       marker.addListener('click', () => {
+        // Set flag to prevent map click from closing this InfoWindow
+        markerJustClicked = true
+        
         // Close previous InfoWindow if open
         if (currentInfoWindow) {
           currentInfoWindow.close()
@@ -672,6 +689,11 @@ function initializeMap(mapContainer: HTMLDivElement): void {
         // Open new InfoWindow and track it
         infoWindow.open(dashboardMap, marker)
         currentInfoWindow = infoWindow
+        
+        // Reset flag after a short delay to allow map clicks to work again
+        setTimeout(() => {
+          markerJustClicked = false
+        }, 300)
       })
 
       markers.push(marker)
@@ -812,6 +834,9 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     
     // Add click listener to marker
     marker.addListener('click', () => {
+      // Set flag to prevent map click from closing this InfoWindow
+      markerJustClicked = true
+      
       // Close previous InfoWindow if open
       if (currentInfoWindow) {
         currentInfoWindow.close()
@@ -819,6 +844,11 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
       // Open new InfoWindow and track it
       infoWindow.open(dashboardMap, marker)
       currentInfoWindow = infoWindow
+      
+      // Reset flag after a short delay to allow map clicks to work again
+      setTimeout(() => {
+        markerJustClicked = false
+      }, 300)
     })
     
     markers.push(marker)
