@@ -177,7 +177,26 @@ export function createDashboardHTML(): string {
           <div class="section-header">
             <h2 data-i18n="requests.title">📋 ${tr.requests.title}</h2>
           </div>
-          <div id="requests-container" class="requests-list"></div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th data-i18n="requests.name">${tr.requests.name}</th>
+                  <th data-i18n="requests.phone">${tr.requests.phone}</th>
+                  <th data-i18n="requests.location">${tr.requests.location}</th>
+                  <th data-i18n="requests.people">${tr.requests.people}</th>
+                  <th data-i18n="requests.needs">${tr.requests.needs}</th>
+                  <th>Urgency</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="requests-table-body">
+              </tbody>
+            </table>
+            <div id="requests-container" style="display: none;"></div>
+          </div>
         </section>
       </main>
     </div>
@@ -942,13 +961,13 @@ function filterCentersTable(searchTerm: string): void {
 
 // Display Help Requests
 function displayHelpRequests(container: HTMLElement, requests: any[] = []): void {
-  const requestsContainer = container.querySelector<HTMLDivElement>('#requests-container')
-  if (!requestsContainer) return
+  const tableBody = container.querySelector<HTMLTableSectionElement>('#requests-table-body')
+  if (!tableBody) return
 
   const tr = t()
 
   if (requests.length === 0) {
-    requestsContainer.innerHTML = `<p style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</p>`
+    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
     return
   }
 
@@ -959,7 +978,7 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
     return dateB - dateA
   })
 
-  requestsContainer.innerHTML = sorted.map((req: any, i: number) => {
+  tableBody.innerHTML = sorted.map((req: any, i: number) => {
     const date = new Date(req.timestamp || req.createdAt || Date.now())
     const needsIcons: Record<string, string> = {
       shelter: '🏠',
@@ -969,106 +988,67 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
       transportation: '🚗'
     }
     
+    // Format urgent needs
+    const urgentNeedsHtml = req.urgentNeeds.map((need: string) => 
+      `<span class="need-tag" title="${need}" style="display: inline-block; margin: 2px; padding: 4px 8px; background: #fef3c7; border-radius: 4px; font-size: 0.85rem;">${needsIcons[need] || '📌'} ${need}</span>`
+    ).join(' ')
+    
+    // Format urgency level badge
+    const urgencyLevel = req.urgencyLevel || 'moderate'
+    const urgencyColors: Record<string, string> = {
+      critical: '#dc3545',
+      urgent: '#ff9800',
+      moderate: '#ffc107'
+    }
+    const urgencyBadge = `<span class="urgency-badge urgency-${urgencyLevel}" style="display: inline-block; padding: 4px 8px; background: ${urgencyColors[urgencyLevel] || '#ffc107'}; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">${urgencyLevel.charAt(0).toUpperCase() + urgencyLevel.slice(1)}</span>`
+    
+    // Format location with map link
+    const locationCell = req.latitude && req.longitude 
+      ? `<div>${req.location}<br><a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem;">🗺️ View on Map</a></div>`
+      : req.location
+    
     return `
-      <div class="request-card">
-        <div class="request-header">
-          <div class="request-number">
-            <span class="request-icon">📋</span>
-            <strong>Request #${i + 1}</strong>
-          </div>
-          <span class="request-date">${date.toLocaleString()}</span>
-        </div>
-        <div class="request-body">
-          <div class="request-field">
-            <span class="field-icon">👤</span>
-            <div class="field-content">
-              <strong data-i18n="requests.name">${tr.requests.name}:</strong>
-              <span>${req.name}</span>
-            </div>
-          </div>
-          <div class="request-field">
-            <span class="field-icon">📞</span>
-            <div class="field-content">
-              <strong data-i18n="requests.phone">${tr.requests.phone}:</strong>
-              <a href="tel:${req.phone}" class="phone-link">${req.phone}</a>
-            </div>
-          </div>
-          <div class="request-field">
-            <span class="field-icon">📍</span>
-            <div class="field-content">
-              <strong data-i18n="requests.location">${tr.requests.location}:</strong>
-              <span>${req.location}</span>
-              ${req.latitude && req.longitude ? `
-                <a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" class="map-link" title="View on Google Maps">
-                  🗺️ View on Map
-                </a>
-              ` : ''}
-            </div>
-          </div>
-          <div class="request-field">
-            <span class="field-icon">👥</span>
-            <div class="field-content">
-              <strong data-i18n="requests.people">${tr.requests.people}:</strong>
-              <span class="people-count">${req.numberOfPeople}</span>
-            </div>
-          </div>
-          <div class="request-field request-needs">
-            <span class="field-icon">⚠️</span>
-            <div class="field-content">
-              <strong data-i18n="requests.needs">${tr.requests.needs}:</strong>
-              <div class="needs-tags">
-                ${req.urgentNeeds.map((need: string) => `
-                  <span class="need-tag" title="${need}">
-                    ${needsIcons[need] || '📌'} ${need}
-                  </span>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-          ${req.urgencyLevel ? `
-            <div class="request-field">
-              <span class="field-icon">🚨</span>
-              <div class="field-content">
-                <strong>Urgency Level:</strong>
-                <span class="urgency-badge urgency-${req.urgencyLevel}">${req.urgencyLevel.charAt(0).toUpperCase() + req.urgencyLevel.slice(1)}</span>
-              </div>
-            </div>
+      <tr>
+        <td>${i + 1}</td>
+        <td>${req.name}</td>
+        <td><a href="tel:${req.phone}" style="color: #667eea; text-decoration: none;">${req.phone}</a></td>
+        <td>${locationCell}</td>
+        <td>${req.numberOfPeople}</td>
+        <td><div style="display: flex; flex-wrap: wrap; gap: 4px;">${urgentNeedsHtml}</div></td>
+        <td>${urgencyBadge}</td>
+        <td>${date.toLocaleString()}</td>
+        <td>
+          <a href="tel:${req.phone}" class="btn-action" title="${tr.requests.call}">📞</a>
+          ${req.latitude && req.longitude ? `
+            <button class="btn-action" data-lat="${req.latitude}" data-lng="${req.longitude}" title="View on Map">🗺️</button>
           ` : ''}
-          ${req.additionalInfo ? `
-            <div class="request-field request-info">
-              <span class="field-icon">📝</span>
-              <div class="field-content">
-                <strong data-i18n="requests.additionalInfo">${tr.requests.additionalInfo}:</strong>
-                <p class="info-text">${req.additionalInfo}</p>
-              </div>
-            </div>
-          ` : ''}
-          ${req.verificationImage ? `
-            <div class="request-field request-image-field">
-              <span class="field-icon">📷</span>
-              <div class="field-content">
-                <strong>Verification Image (Sri Lanka Flood Disaster):</strong>
-                <div class="verification-image-container">
-                  <img src="${req.verificationImage}" 
-                       alt="Verification Image - Sri Lanka Flood Disaster" 
-                       class="verification-image"
-                       onclick="openImageModal('${req.verificationImage}')">
-                  <div class="image-overlay">
-                    <span class="overlay-text">Click to view full size</span>
-                    <span class="overlay-icon">🔍</span>
-                  </div>
-                </div>
-                <p class="image-note">📸 Image uploaded for verification</p>
-              </div>
-            </div>
-          ` : ''}
-        </div>
-      </div>
+        </td>
+      </tr>
     `
   }).join('')
   
-  // Add modal for full-size image viewing
-  addImageModal()
+  // Add click handlers for map buttons
+  tableBody.querySelectorAll('.btn-action[data-lat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
+      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat, lng })
+        dashboardMap.setZoom(15)
+        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
+        if (overviewNav) (overviewNav as HTMLElement).click()
+        
+        // Find and trigger click on the help request marker at this location
+        const marker = markers.find(m => {
+          const pos = m.getPosition()
+          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
+        })
+        if (marker) {
+          google.maps.event.trigger(marker, 'click')
+        }
+      }
+    })
+  })
 }
 
 // Add center image modal
