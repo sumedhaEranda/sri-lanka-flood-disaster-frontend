@@ -427,6 +427,10 @@ body {
   overflow-x: auto;
 }
 
+.table-container {
+  overflow-x: auto;
+}
+
 .centers-table {
   width: 100%;
   border-collapse: collapse;
@@ -546,6 +550,46 @@ body {
 }
 
 .centers-table a:hover {
+  text-decoration: underline;
+}
+
+/* Requests Table - Same styling as Centers Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table thead {
+  background: #f8fafc;
+}
+
+.data-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #475569;
+}
+
+.data-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.data-table a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.data-table a:hover {
   text-decoration: underline;
 }
 
@@ -1562,6 +1606,15 @@ body {
   .centers-table td {
     padding: 0.75rem 0.5rem;
   }
+  
+  .data-table {
+    font-size: 0.9rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.75rem 0.5rem;
+  }
 }
 
 /* Mobile & Small Tablets (max-width: 768px) */
@@ -2050,11 +2103,34 @@ body {
     font-size: 1.1rem;
   }
   
+  .data-table {
+    font-size: 0.85rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.375rem;
+  }
+  
+  .centers-table {
+    font-size: 0.85rem;
+  }
+  
+  .centers-table th,
+  .centers-table td {
+    padding: 0.5rem 0.375rem;
+  }
+  
   .map {
     height: 350px;
   }
   
   .centers-table {
+    font-size: 0.8rem;
+    min-width: 700px;
+  }
+  
+  .data-table {
     font-size: 0.8rem;
     min-width: 700px;
   }
