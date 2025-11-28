@@ -191,10 +191,17 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
     })
   }
   
+  // Get location button - this ensures user interaction for Chrome mobile
+  if (getLocationBtn) {
+    getLocationBtn.addEventListener('click', () => {
+      getCurrentLocation(locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn)
+    })
+  }
+  
   // Initialize map with error handling
   if (mapContainer) {
     if (typeof google !== 'undefined' && google.maps) {
-      initializeHelpFormMap(mapContainer, locationInput, locationStatus, latitudeInput, longitudeInput)
+      initializeHelpFormMap(mapContainer, locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn)
     } else if ((window as any).googleMapsError) {
       showHelpFormMapError(mapContainer)
     } else {
@@ -210,7 +217,7 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
           showHelpFormMapError(mapContainer)
         } else if (typeof google !== 'undefined' && google.maps) {
           clearInterval(checkGoogleMaps)
-          initializeHelpFormMap(mapContainer, locationInput, locationStatus, latitudeInput, longitudeInput)
+          initializeHelpFormMap(mapContainer, locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn)
         } else if (attempts >= maxAttempts) {
           clearInterval(checkGoogleMaps)
           showHelpFormMapError(mapContainer)
@@ -220,7 +227,7 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
       window.addEventListener('googlemapsloaded', () => {
         clearInterval(checkGoogleMaps)
         if (mapContainer && typeof google !== 'undefined' && google.maps) {
-          initializeHelpFormMap(mapContainer, locationInput, locationStatus, latitudeInput, longitudeInput)
+          initializeHelpFormMap(mapContainer, locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn)
         }
       }, { once: true })
       
@@ -229,23 +236,6 @@ export function setupHomelessHelpForm(container: HTMLElement): void {
         showHelpFormMapError(mapContainer)
       }, { once: true })
     }
-  }
-  
-  // Get location button
-  if (getLocationBtn) {
-    getLocationBtn.addEventListener('click', () => {
-      getCurrentLocation(locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn)
-    })
-  }
-  
-  // Automatically get location on form load
-  // Opening the form is considered user interaction, so this should work on both Android and iOS
-  if (navigator.geolocation) {
-    // Use a small delay to ensure form and map are fully rendered
-    // This works because opening the form is a user interaction
-    setTimeout(() => {
-      getCurrentLocation(locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn, true)
-    }, 1000) // Increased delay to ensure map is ready
   }
   
   // Image upload handling
@@ -419,7 +409,8 @@ function initializeHelpFormMap(
   locationInput: HTMLInputElement | null,
   locationStatus: HTMLDivElement | null,
   latitudeInput: HTMLInputElement | null,
-  longitudeInput: HTMLInputElement | null
+  longitudeInput: HTMLInputElement | null,
+  getLocationBtn: HTMLButtonElement | null
 ): void {
   try {
     if (mapContainer.hasChildNodes()) {
@@ -471,6 +462,19 @@ function initializeHelpFormMap(
       
       updateLocationFromCoordinates(lat, lng, locationInput, locationStatus, latitudeInput, longitudeInput)
     })
+    
+    // Request location immediately after map is ready (part of user interaction chain)
+    // This works better for Chrome mobile which requires immediate user interaction
+    // Opening the form counts as user interaction, so this should work
+    if (navigator.geolocation && locationInput && locationStatus && latitudeInput && longitudeInput) {
+      // Use requestAnimationFrame to ensure map is fully rendered, but still in interaction chain
+      // Double requestAnimationFrame for better Chrome mobile compatibility
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          getCurrentLocation(locationInput, locationStatus, latitudeInput, longitudeInput, getLocationBtn, true)
+        })
+      })
+    }
   } catch (error) {
     console.error('Error initializing help form map:', error)
     showHelpFormMapError(mapContainer)
@@ -523,10 +527,11 @@ async function getCurrentLocation(
 
   try {
     // Optimize geolocation options for mobile devices
+    // Chrome mobile works better with high accuracy and longer timeout
     const geoOptions: PositionOptions = {
-      enableHighAccuracy: isMobile, // Use high accuracy on mobile for better GPS
-      timeout: isMobile ? 15000 : 10000, // Longer timeout for mobile devices
-      maximumAge: isMobile ? 30000 : 0 // Accept cached position on mobile (30 seconds)
+      enableHighAccuracy: true, // Always use high accuracy for better GPS on mobile
+      timeout: isMobile ? 20000 : 15000, // Longer timeout for mobile devices (20 seconds)
+      maximumAge: isMobile ? 60000 : 0 // Accept cached position on mobile (60 seconds) for faster response
     }
 
     const position = await new Promise<GeolocationPosition>((resolve, reject) => {
