@@ -45,7 +45,6 @@ export function createHomelessHelpForm(): string {
     <div class="form-container">
       <div class="form-header">
         <h1 data-i18n="helpForm.title">${tr.helpForm.title}</h1>
-        <p class="subtitle" data-i18n="helpForm.subtitle">${tr.helpForm.subtitle}</p>
       </div>
       
       <form id="help-request-form" class="help-form">
