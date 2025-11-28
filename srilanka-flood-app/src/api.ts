@@ -16,6 +16,9 @@ export interface DisasterCenter {
   additionalInfo?: string
   createdAt?: string
   updatedAt?: string
+  verified?: boolean
+  verifiedAt?: string
+  verifiedBy?: string
 }
 
 export interface HelpRequest {
@@ -33,6 +36,9 @@ export interface HelpRequest {
   timestamp?: Date | string
   status?: 'pending' | 'processing' | 'completed'
   assignedCenter?: string
+  verified?: boolean
+  verifiedAt?: string
+  verifiedBy?: string
 }
 
 export interface Statistics {
@@ -327,6 +333,27 @@ export async function forwardGeocode(address: string): Promise<{ latitude: numbe
   return apiCall<{ latitude: number; longitude: number }>('/location/geocode', {
     method: 'POST',
     body: JSON.stringify({ address }),
+  })
+}
+
+// Verification API functions (works without authentication)
+export async function verifyHelpRequest(id: string, verified: boolean = true, verifiedBy?: string): Promise<HelpRequest> {
+  // Verification works without authentication - use 'anonymous' as default
+  const verifiedByUser = verifiedBy || 'anonymous'
+  
+  return apiCall<HelpRequest>(`/help-requests/${id}/verify`, {
+    method: 'PATCH',
+    body: JSON.stringify({ verified, verifiedBy: verifiedByUser }),
+  })
+}
+
+export async function verifyDisasterCenter(id: string, verified: boolean = true, verifiedBy?: string): Promise<DisasterCenter> {
+  // Verification works without authentication - use 'anonymous' as default
+  const verifiedByUser = verifiedBy || 'anonymous'
+  
+  return apiCall<DisasterCenter>(`/disaster-centers/${id}/verify`, {
+    method: 'PATCH',
+    body: JSON.stringify({ verified, verifiedBy: verifiedByUser }),
   })
 }
 

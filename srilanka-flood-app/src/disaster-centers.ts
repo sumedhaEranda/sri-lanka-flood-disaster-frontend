@@ -1,5 +1,5 @@
 import { t, getCurrentLanguage, setLanguage, type Language } from './i18n.ts'
-import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, getCurrentUser, isAuthenticated, type DisasterCenter, type Statistics, type HelpRequest } from './api.ts'
+import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, type DisasterCenter, type Statistics, type HelpRequest } from './api.ts'
 
 // Export DisasterCenter type for use in other files
 export type { DisasterCenter }
@@ -760,16 +760,13 @@ function initializeMap(mapContainer: HTMLDivElement): void {
               
               if (!centerId) return
               
-              // Get current user if authenticated (optional)
-              const currentUser = getCurrentUser() || { id: 'anonymous', name: 'Anonymous User', email: '' }
-              
               // Disable button during request
-              verifyBtn.disabled = true
+              ;(verifyBtn as HTMLButtonElement).disabled = true
               ;(verifyBtn as HTMLElement).innerHTML = '⏳'
               
               try {
-                // Verify/unverify center
-                await verifyDisasterCenter(centerId, !isVerified, currentUser.id || currentUser.name)
+                // Verify/unverify center (works without authentication)
+                await verifyDisasterCenter(centerId, !isVerified)
                 
                 // Close info window
                 if (currentInfoWindow) {
@@ -789,7 +786,7 @@ function initializeMap(mapContainer: HTMLDivElement): void {
               } catch (error: any) {
                 console.error('Error verifying center:', error)
                 alert(error.message || 'Failed to update verification status. Please try again.')
-                verifyBtn.disabled = false
+                ;(verifyBtn as HTMLButtonElement).disabled = false
                 ;(verifyBtn as HTMLElement).innerHTML = isVerified ? (tr.centers.unverify || 'Unverify') : (tr.centers.verify || 'Verify')
               }
             })
@@ -989,9 +986,6 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
               
               if (!requestId) return
               
-              // Get current user if authenticated (optional)
-              const currentUser = getCurrentUser() || { id: 'anonymous', name: 'Anonymous User', email: '' }
-              
               // Parse request data
               let requestObj: any = request // Use the request object from closure
               if (requestData) {
@@ -1008,9 +1002,9 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
                 currentInfoWindow.close()
               }
               
-              // Show verification modal (same as table)
+              // Show verification modal (same as table) - works without authentication
               if (dashboardContainer) {
-                showVerificationModal(requestId, requestObj, isVerified, currentUser, dashboardContainer)
+                showVerificationModal(requestId, requestObj, isVerified, dashboardContainer)
               }
             })
           }
@@ -1246,9 +1240,6 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
         return
       }
       
-      // Get current user if authenticated (optional)
-      const currentUser = getCurrentUser() || { id: 'anonymous', name: 'Anonymous User', email: '' }
-      
       // Parse request data
       let request: any = null
       if (requestData) {
@@ -1259,20 +1250,17 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
         }
       }
       
-      console.log('Showing verification modal', { requestId, request, currentUser })
-      
-      // Show verification modal/form (works without login)
-      showVerificationModal(requestId, request, isVerified, currentUser, container)
+      // Show verification modal/form (works without authentication)
+      showVerificationModal(requestId, request, isVerified, container)
     })
   })
 }
 
-// Show verification modal/form - works without login
+// Show verification modal/form - works without authentication
 function showVerificationModal(
   requestId: string,
   request: any,
   isVerified: boolean,
-  currentUser: any,
   container: HTMLElement
 ): void {
   const tr = t()
@@ -1345,9 +1333,6 @@ function showVerificationModal(
           <textarea id="verification-notes" rows="4" placeholder="${tr.requests.verificationNotesPlaceholder || 'Add any notes about this verification (optional)'}" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px; font-family: inherit; font-size: 0.95rem; resize: vertical;"></textarea>
         </div>
         
-        <div class="verification-user-info" style="padding: 1rem; background: #f1f5f9; border-radius: 6px; margin-bottom: 1.5rem;">
-          <p style="margin: 0; color: #475569;"><strong>Verifying as:</strong> <span style="color: #1e293b;">${currentUser?.name || currentUser?.email || 'Anonymous User'}</span></p>
-        </div>
       </div>
       
       <div class="modal-footer" style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1.5rem; border-top: 2px solid #e2e8f0;">
@@ -1408,12 +1393,12 @@ function showVerificationModal(
       if (!requestId) return
       
       // Disable button
-      confirmBtn.disabled = true
+      ;(confirmBtn as HTMLButtonElement).disabled = true
       ;(confirmBtn as HTMLElement).innerHTML = '⏳ Processing...'
       
       try {
-        // Verify/unverify request (works without login)
-        await verifyHelpRequest(requestId, !isVerified, currentUser?.id || currentUser?.name || 'anonymous')
+        // Verify/unverify request (works without authentication)
+        await verifyHelpRequest(requestId, !isVerified)
         
         // Close modal
         ;(window as any).closeVerificationModal()
@@ -1434,7 +1419,7 @@ function showVerificationModal(
       } catch (error: any) {
         console.error('Error verifying request:', error)
         alert(error.message || 'Failed to update verification status. Please try again.')
-        confirmBtn.disabled = false
+        ;(confirmBtn as HTMLButtonElement).disabled = false
         ;(confirmBtn as HTMLElement).innerHTML = isVerified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')
       }
     })

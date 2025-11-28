@@ -363,7 +363,12 @@ const translations: Record<Language, Translations> = {
       unverified: 'සත්‍යාපනය නොකළ',
       verify: 'සත්‍යාපනය කරන්න',
       unverify: 'සත්‍යාපනය ඉවත් කරන්න',
-      verificationStatus: 'සත්‍යාපන තත්වය'
+      verificationStatus: 'සත්‍යාපන තත්වය',
+      verificationNotes: 'සත්‍යාපන සටහන්',
+      verificationNotesPlaceholder: 'මෙම සත්‍යාපනය පිළිබඳ ඕනෑම සටහනක් එක් කරන්න (විකල්ප)',
+      verifyRequest: 'ඉල්ලීම සත්‍යාපනය කරන්න',
+      cancel: 'අවලංගු කරන්න',
+      requestDetails: 'ඉල්ලීම් විස්තර'
     },
     helpForm: {
       title: 'ශ්‍රී ලංකා ගංවතුර විපත් - උදව් ඉල්ලීම',
