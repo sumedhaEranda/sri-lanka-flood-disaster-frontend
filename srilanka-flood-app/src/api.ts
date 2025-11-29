@@ -342,7 +342,7 @@ export async function verifyHelpRequest(id: string, verified: boolean = true, ve
   const verifiedByUser = verifiedBy || 'anonymous'
   
   return apiCall<HelpRequest>(`/help-requests/${id}/verify`, {
-    method: 'PATCH',
+    method: 'PUT',
     body: JSON.stringify({ verified, verifiedBy: verifiedByUser }),
   })
 }
@@ -352,7 +352,7 @@ export async function verifyDisasterCenter(id: string, verified: boolean = true,
   const verifiedByUser = verifiedBy || 'anonymous'
   
   return apiCall<DisasterCenter>(`/disaster-centers/${id}/verify`, {
-    method: 'PATCH',
+    method: 'PUT',
     body: JSON.stringify({ verified, verifiedBy: verifiedByUser }),
   })
 }
