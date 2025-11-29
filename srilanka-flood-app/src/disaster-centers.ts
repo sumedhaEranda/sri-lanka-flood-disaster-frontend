@@ -179,7 +179,8 @@ export function createDashboardHTML(): string {
           <div class="section-header">
             <h2 data-i18n="requests.title">📋 ${tr.requests.title}</h2>
           </div>
-          <div class="table-container">
+          <!-- Desktop Table View -->
+          <div class="table-container requests-table-desktop">
             <table class="data-table">
               <thead>
                 <tr>
@@ -198,7 +199,9 @@ export function createDashboardHTML(): string {
               <tbody id="requests-table-body">
               </tbody>
             </table>
-            <div id="requests-container" style="display: none;"></div>
+          </div>
+          <!-- Mobile Card View -->
+          <div id="requests-mobile-grid" class="requests-mobile-grid">
           </div>
         </section>
       </main>
@@ -1113,12 +1116,15 @@ function filterCentersTable(searchTerm: string): void {
 // Display Help Requests
 function displayHelpRequests(container: HTMLElement, requests: any[] = []): void {
   const tableBody = container.querySelector<HTMLTableSectionElement>('#requests-table-body')
-  if (!tableBody) return
+  const mobileGrid = container.querySelector<HTMLDivElement>('#requests-mobile-grid')
+  
+  if (!tableBody || !mobileGrid) return
 
   const tr = t()
 
   if (requests.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
+    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
+    mobileGrid.innerHTML = `<div style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</div>`
     return
   }
 
@@ -1200,6 +1206,79 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
     `
   }).join('')
   
+  // Render mobile card grid
+  mobileGrid.innerHTML = sorted.map((req: any, i: number) => {
+    const date = new Date(req.timestamp || req.createdAt || Date.now())
+    const needsIcons: Record<string, string> = {
+      shelter: '🏠',
+      food: '🍽️',
+      medical: '🏥',
+      clothing: '👕',
+      transportation: '🚗'
+    }
+    
+    const urgentNeedsHtml = req.urgentNeeds.map((need: string) => 
+      `<span class="need-tag-mobile" style="display: inline-block; margin: 2px; padding: 4px 8px; background: #fef3c7; border-radius: 4px; font-size: 0.75rem;">${needsIcons[need] || '📌'} ${need}</span>`
+    ).join('')
+    
+    const urgencyLevel = req.urgencyLevel || 'moderate'
+    const urgencyColors: Record<string, string> = {
+      critical: '#dc3545',
+      urgent: '#ff9800',
+      moderate: '#ffc107'
+    }
+    const urgencyBadge = `<span style="display: inline-block; padding: 3px 6px; background: ${urgencyColors[urgencyLevel] || '#ffc107'}; color: white; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">${urgencyLevel.charAt(0).toUpperCase() + urgencyLevel.slice(1)}</span>`
+    
+    const verifiedBadge = req.verified 
+      ? `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; background: #10b981; color: white; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">✓ ${tr.requests.verified || 'Verified'}</span>`
+      : `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; background: #ef4444; color: white; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">✗ ${tr.requests.unverified || 'Unverified'}</span>`
+    
+    return `
+      <div class="request-card-mobile" data-request-id="${req.id || ''}">
+        <div class="request-card-header-mobile">
+          <div class="request-card-title">
+            <span class="request-number-mobile">#${i + 1}</span>
+            <span class="request-name-mobile">${req.name}</span>
+          </div>
+          <div class="request-badges-mobile">
+            ${urgencyBadge}
+            ${verifiedBadge}
+          </div>
+        </div>
+        <div class="request-card-content-mobile">
+          <div class="request-info-row">
+            <span class="info-label">📞</span>
+            <a href="tel:${req.phone}" class="info-value-link">${req.phone}</a>
+          </div>
+          <div class="request-info-row">
+            <span class="info-label">📍</span>
+            <span class="info-value">${req.location || 'Location not specified'}</span>
+            ${req.latitude && req.longitude ? `<a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" class="map-link-mobile">🗺️ View Map</a>` : ''}
+          </div>
+          <div class="request-info-row">
+            <span class="info-label">👥</span>
+            <span class="info-value">${req.numberOfPeople} ${tr.requests.people || 'people'}</span>
+          </div>
+          ${req.urgentNeeds && req.urgentNeeds.length > 0 ? `
+          <div class="request-info-row">
+            <span class="info-label">📋</span>
+            <div class="info-value needs-mobile">${urgentNeedsHtml}</div>
+          </div>
+          ` : ''}
+          <div class="request-info-row">
+            <span class="info-label">📅</span>
+            <span class="info-value">${date.toLocaleString()}</span>
+          </div>
+        </div>
+        <div class="request-card-actions-mobile">
+          <a href="tel:${req.phone}" class="action-btn-mobile action-btn-call">📞 ${tr.requests.call || 'Call'}</a>
+          ${req.latitude && req.longitude ? `<button class="action-btn-mobile action-btn-map" data-lat="${req.latitude}" data-lng="${req.longitude}">🗺️ Map</button>` : ''}
+          ${req.id ? `<button class="action-btn-mobile action-btn-verify verify-btn-mobile" data-id="${req.id}" data-verified="${req.verified ? 'true' : 'false'}" data-request='${JSON.stringify(req).replace(/'/g, "&apos;")}">${req.verified ? '❌ ' + (tr.requests.unverify || 'Unverify') : '✓ ' + (tr.requests.verify || 'Verify')}</button>` : ''}
+        </div>
+      </div>
+    `
+  }).join('')
+  
   // Add click handlers for map buttons
   tableBody.querySelectorAll('.btn-action[data-lat]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1234,6 +1313,61 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
       const requestData = (btn as HTMLElement).dataset.request
       
       console.log('Verify button clicked', { requestId, isVerified, requestData })
+      
+      if (!requestId) {
+        console.error('No request ID found')
+        return
+      }
+      
+      // Parse request data
+      let request: any = null
+      if (requestData) {
+        try {
+          request = JSON.parse(requestData.replace(/&apos;/g, "'"))
+        } catch (e) {
+          console.error('Error parsing request data:', e)
+        }
+      }
+      
+      // Show verification modal/form (works without authentication)
+      showVerificationModal(requestId, request, isVerified, container)
+    })
+  })
+  
+  // Add click handlers for map buttons (mobile cards)
+  mobileGrid.querySelectorAll('.action-btn-map').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
+      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat, lng })
+        dashboardMap.setZoom(15)
+        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
+        if (overviewNav) (overviewNav as HTMLElement).click()
+        
+        // Find and trigger click on the help request marker at this location
+        const marker = markers.find(m => {
+          const pos = m.getPosition()
+          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
+        })
+        if (marker) {
+          google.maps.event.trigger(marker, 'click')
+        }
+      }
+    })
+  })
+  
+  // Add click handlers for verify/unverify buttons (mobile cards)
+  mobileGrid.querySelectorAll('.verify-btn-mobile').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const requestId = (btn as HTMLElement).dataset.id
+      const isVerified = (btn as HTMLElement).dataset.verified === 'true'
+      const requestData = (btn as HTMLElement).dataset.request
+      
+      console.log('Verify button clicked (mobile)', { requestId, isVerified, requestData })
       
       if (!requestId) {
         console.error('No request ID found')
