@@ -52,7 +52,7 @@ export interface Translations {
     unverify: string
     verificationStatus: string
   }
-    requests: {
+  requests: {
     title: string
     noRequests: string
     name: string

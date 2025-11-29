@@ -179,7 +179,8 @@ export function createDashboardHTML(): string {
           <div class="section-header">
             <h2 data-i18n="requests.title">📋 ${tr.requests.title}</h2>
           </div>
-          <div class="table-container">
+          <!-- Desktop Table View -->
+          <div class="table-container requests-table-wrapper">
             <table class="data-table">
               <thead>
                 <tr>
@@ -198,7 +199,9 @@ export function createDashboardHTML(): string {
               <tbody id="requests-table-body">
               </tbody>
             </table>
-            <div id="requests-container" style="display: none;"></div>
+          </div>
+          <!-- Mobile Card View -->
+          <div id="requests-mobile-container" class="requests-mobile-container">
           </div>
         </section>
       </main>
@@ -1113,12 +1116,15 @@ function filterCentersTable(searchTerm: string): void {
 // Display Help Requests
 function displayHelpRequests(container: HTMLElement, requests: any[] = []): void {
   const tableBody = container.querySelector<HTMLTableSectionElement>('#requests-table-body')
-  if (!tableBody) return
+  const mobileContainer = container.querySelector<HTMLDivElement>('#requests-mobile-container')
+  
+  if (!tableBody || !mobileContainer) return
 
   const tr = t()
 
   if (requests.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
+    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
+    mobileContainer.innerHTML = `<div style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</div>`
     return
   }
 
@@ -1129,6 +1135,7 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
     return dateB - dateA
   })
 
+  // Render desktop table view
   tableBody.innerHTML = sorted.map((req: any, i: number) => {
     const date = new Date(req.timestamp || req.createdAt || Date.now())
     const needsIcons: Record<string, string> = {
@@ -1158,8 +1165,8 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
       ? `<div style="max-width: 250px;">
           <div style="margin-bottom: 4px; color: #475569; font-weight: 500;">📍 ${req.location || 'Location not specified'}</div>
           <a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
-            🗺️ View on Map
-          </a>
+                  🗺️ View on Map
+                </a>
         </div>`
       : `<div style="max-width: 250px;">
           <div style="color: #475569;">📍 ${req.location || 'Location not specified'}</div>
@@ -1189,7 +1196,7 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
           <a href="tel:${req.phone}" class="btn-action" title="${tr.requests.call}">📞</a>
           ${req.latitude && req.longitude ? `
             <button class="btn-action" data-lat="${req.latitude}" data-lng="${req.longitude}" title="View on Map">🗺️</button>
-          ` : ''}
+              ` : ''}
           ${req.id ? `
             <button class="btn-action verify-btn" data-id="${req.id}" data-verified="${req.verified ? 'true' : 'false'}" data-request='${JSON.stringify(req).replace(/'/g, "&apos;")}' title="${req.verified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')}">
               ${req.verified ? '❌' : '✓'}
@@ -1197,6 +1204,101 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
           ` : ''}
         </td>
       </tr>
+    `
+  }).join('')
+  
+  // Render mobile card view
+  mobileContainer.innerHTML = sorted.map((req: any, i: number) => {
+    const date = new Date(req.timestamp || req.createdAt || Date.now())
+    const needsIcons: Record<string, string> = {
+      shelter: '🏠',
+      food: '🍽️',
+      medical: '🏥',
+      clothing: '👕',
+      transportation: '🚗'
+    }
+    
+    const urgentNeedsHtml = req.urgentNeeds.map((need: string) => 
+      `<span class="need-tag" style="display: inline-block; margin: 2px; padding: 4px 8px; background: #fef3c7; border-radius: 4px; font-size: 0.8rem;">${needsIcons[need] || '📌'} ${need}</span>`
+    ).join('')
+    
+    const urgencyLevel = req.urgencyLevel || 'moderate'
+    const urgencyColors: Record<string, string> = {
+      critical: '#dc3545',
+      urgent: '#ff9800',
+      moderate: '#ffc107'
+    }
+    const urgencyBadge = `<span class="urgency-badge" style="display: inline-block; padding: 4px 8px; background: ${urgencyColors[urgencyLevel] || '#ffc107'}; color: white; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">${urgencyLevel.charAt(0).toUpperCase() + urgencyLevel.slice(1)}</span>`
+    
+    const verifiedBadge = req.verified 
+      ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">✓ ${tr.requests.verified || 'Verified'}</span>`
+      : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #ef4444; color: white; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">✗ ${tr.requests.unverified || 'Unverified'}</span>`
+    
+    return `
+      <div class="request-card-mobile" data-request-id="${req.id || ''}">
+        <div class="request-card-header">
+          <div class="request-card-number">
+            <span class="request-icon">🚨</span>
+            <span class="request-number-text">#${i + 1}</span>
+          </div>
+          <div class="request-card-badges">
+            ${urgencyBadge}
+            ${verifiedBadge}
+          </div>
+        </div>
+        <div class="request-card-body">
+          <div class="request-field">
+            <div class="field-icon">👤</div>
+            <div class="field-content">
+              <strong>${tr.requests.name || 'Name'}</strong>
+              <span>${req.name}</span>
+            </div>
+          </div>
+          <div class="request-field">
+            <div class="field-icon">📞</div>
+            <div class="field-content">
+              <strong>${tr.requests.phone || 'Phone'}</strong>
+              <a href="tel:${req.phone}" class="phone-link">${req.phone}</a>
+            </div>
+          </div>
+          <div class="request-field">
+            <div class="field-icon">📍</div>
+            <div class="field-content">
+              <strong>${tr.requests.location || 'Location'}</strong>
+              <span>${req.location || 'Location not specified'}</span>
+              ${req.latitude && req.longitude ? `<a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem; margin-top: 4px; display: inline-block;">🗺️ View on Map</a>` : ''}
+            </div>
+          </div>
+          <div class="request-field">
+            <div class="field-icon">👥</div>
+            <div class="field-content">
+              <strong>${tr.requests.people || 'People'}</strong>
+              <span>${req.numberOfPeople}</span>
+            </div>
+          </div>
+          ${req.urgentNeeds && req.urgentNeeds.length > 0 ? `
+          <div class="request-field">
+            <div class="field-icon">📋</div>
+            <div class="field-content">
+              <strong>${tr.requests.needs || 'Urgent Needs'}</strong>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">${urgentNeedsHtml}</div>
+            </div>
+          </div>
+          ` : ''}
+          <div class="request-field">
+            <div class="field-icon">📅</div>
+            <div class="field-content">
+              <strong>Date</strong>
+              <span>${date.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+        <div class="request-card-actions">
+          <a href="tel:${req.phone}" class="btn-action-mobile btn-call">📞 ${tr.requests.call || 'Call'}</a>
+          ${req.latitude && req.longitude ? `<button class="btn-action-mobile btn-map" data-lat="${req.latitude}" data-lng="${req.longitude}">🗺️ View on Map</button>` : ''}
+          ${req.id ? `<button class="btn-action-mobile btn-verify verify-btn-mobile" data-id="${req.id}" data-verified="${req.verified ? 'true' : 'false'}" data-request='${JSON.stringify(req).replace(/'/g, "&apos;")}'>${req.verified ? '❌ ' + (tr.requests.unverify || 'Unverify') : '✓ ' + (tr.requests.verify || 'Verify')}</button>` : ''}
+        </div>
+      </div>
     `
   }).join('')
   
@@ -1254,6 +1356,61 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
       showVerificationModal(requestId, request, isVerified, container)
     })
   })
+  
+  // Add click handlers for map buttons (mobile cards)
+  mobileContainer.querySelectorAll('.btn-map').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
+      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat, lng })
+        dashboardMap.setZoom(15)
+        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
+        if (overviewNav) (overviewNav as HTMLElement).click()
+        
+        // Find and trigger click on the help request marker at this location
+        const marker = markers.find(m => {
+          const pos = m.getPosition()
+          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
+        })
+        if (marker) {
+          google.maps.event.trigger(marker, 'click')
+        }
+      }
+    })
+  })
+  
+  // Add click handlers for verify/unverify buttons (mobile cards)
+  mobileContainer.querySelectorAll('.verify-btn-mobile').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const requestId = (btn as HTMLElement).dataset.id
+      const isVerified = (btn as HTMLElement).dataset.verified === 'true'
+      const requestData = (btn as HTMLElement).dataset.request
+      
+      console.log('Verify button clicked (mobile)', { requestId, isVerified, requestData })
+      
+      if (!requestId) {
+        console.error('No request ID found')
+        return
+      }
+      
+      // Parse request data
+      let request: any = null
+      if (requestData) {
+        try {
+          request = JSON.parse(requestData.replace(/&apos;/g, "'"))
+        } catch (e) {
+          console.error('Error parsing request data:', e)
+        }
+      }
+      
+      // Show verification modal/form (works without authentication)
+      showVerificationModal(requestId, request, isVerified, container)
+    })
+  })
 }
 
 // Show verification modal/form - works without authentication
@@ -1279,7 +1436,7 @@ function showVerificationModal(
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #e2e8f0;">
         <h2 style="margin: 0; color: #1e293b; font-size: 1.5rem;">${isVerified ? (tr.requests.unverify || 'Unverify Request') : (tr.requests.verifyRequest || 'Verify Request')}</h2>
         <button class="modal-close" onclick="closeVerificationModal()">✕</button>
-      </div>
+            </div>
       
       <div class="modal-body">
         ${request ? `
@@ -1288,7 +1445,7 @@ function showVerificationModal(
             <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
               <strong style="color: #475569;">${tr.requests.name || 'Name'}:</strong>
               <span style="color: #1e293b;">${request.name || 'N/A'}</span>
-            </div>
+          </div>
             <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
               <strong style="color: #475569;">${tr.requests.phone || 'Phone'}:</strong>
               <span style="color: #1e293b;"><a href="tel:${request.phone}" style="color: #667eea; text-decoration: none;">${request.phone || 'N/A'}</a></span>
@@ -1296,11 +1453,11 @@ function showVerificationModal(
             <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
               <strong style="color: #475569;">${tr.requests.location || 'Location'}:</strong>
               <span style="color: #1e293b;">${request.location || 'N/A'}</span>
-            </div>
+          </div>
             <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
               <strong style="color: #475569;">${tr.requests.people || 'People'}:</strong>
               <span style="color: #1e293b;">${request.numberOfPeople || 'N/A'}</span>
-            </div>
+              </div>
             <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
               <strong style="color: #475569;">Urgency:</strong>
               <span style="color: #1e293b;">${request.urgencyLevel ? request.urgencyLevel.charAt(0).toUpperCase() + request.urgencyLevel.slice(1) : 'N/A'}</span>
@@ -1309,40 +1466,40 @@ function showVerificationModal(
               <div class="detail-row" style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0;">
                 <strong style="color: #475569;">${tr.requests.needs || 'Needs'}:</strong>
                 <span style="color: #1e293b;">${request.urgentNeeds.join(', ')}</span>
-              </div>
+          </div>
             ` : ''}
             ${request.additionalInfo ? `
               <div class="detail-row" style="padding: 0.75rem 0;">
                 <strong style="color: #475569; display: block; margin-bottom: 0.5rem;">${tr.requests.additionalInfo || 'Additional Info'}:</strong>
                 <span style="color: #1e293b;">${request.additionalInfo}</span>
-              </div>
-            ` : ''}
+            </div>
+          ` : ''}
             ${request.verificationImage ? `
               <div class="detail-row" style="padding: 0.75rem 0; margin-top: 1rem;">
                 <strong style="color: #475569; display: block; margin-bottom: 0.5rem;">Verification Image:</strong>
                 <div class="verification-image-preview">
                   <img src="${request.verificationImage}" alt="Verification" onclick="window.open('${request.verificationImage}', '_blank')" style="max-width: 200px; max-height: 200px; cursor: pointer; border-radius: 4px; border: 2px solid #e2e8f0;">
-                </div>
               </div>
-            ` : ''}
-          </div>
+            </div>
+          ` : ''}
+                  </div>
         ` : ''}
         
         <div class="verification-form-group" style="margin-bottom: 1.5rem;">
           <label for="verification-notes" style="display: block; margin-bottom: 0.5rem; color: #475569; font-weight: 600;">${tr.requests.verificationNotes || 'Verification Notes'} <span style="color: #94a3b8;">(${tr.requests.cancel || 'Optional'})</span></label>
           <textarea id="verification-notes" rows="4" placeholder="${tr.requests.verificationNotesPlaceholder || 'Add any notes about this verification (optional)'}" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px; font-family: inherit; font-size: 0.95rem; resize: vertical;"></textarea>
-        </div>
+                </div>
         
-      </div>
+              </div>
       
       <div class="modal-footer" style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1.5rem; border-top: 2px solid #e2e8f0;">
         <button class="btn-secondary" onclick="closeVerificationModal()" style="padding: 0.75rem 1.5rem; background: #f1f5f9; color: #475569; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">${tr.requests.cancel || 'Cancel'}</button>
         <button class="btn-primary verify-confirm-btn" data-id="${requestId}" data-verified="${isVerified}" style="padding: 0.75rem 1.5rem; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
           ${isVerified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')}
         </button>
+        </div>
       </div>
-    </div>
-  `
+    `
   
   document.body.appendChild(modal)
   document.body.style.overflow = 'hidden'
