@@ -87,6 +87,13 @@ async function apiCall<T>(
     'Content-Type': 'application/json',
   }
 
+  // Log request for debugging (especially useful in production)
+  console.log('API Request:', {
+    method: options.method || 'GET',
+    url,
+    body: options.body ? JSON.parse(options.body as string) : null
+  })
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -96,8 +103,33 @@ async function apiCall<T>(
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || error.error || `HTTP ${response.status}: ${response.statusText}`)
+    let errorData: any
+    try {
+      errorData = await response.json()
+    } catch (e) {
+      errorData = { 
+        message: 'Unknown error', 
+        error: response.statusText,
+        status: response.status
+      }
+    }
+    
+    // Log detailed error for debugging
+    console.error('API Error:', {
+      url,
+      method: options.method || 'GET',
+      status: response.status,
+      statusText: response.statusText,
+      errorData,
+      requestBody: options.body ? JSON.parse(options.body as string) : null
+    })
+    
+    // Create a more detailed error message
+    const errorMessage = errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`
+    const error = new Error(errorMessage)
+    ;(error as any).status = response.status
+    ;(error as any).data = errorData
+    throw error
   }
 
   return response.json()
@@ -341,10 +373,35 @@ export async function verifyHelpRequest(id: string, verified: boolean = true, ve
   // Verification works without authentication - use 'anonymous' as default
   const verifiedByUser = verifiedBy || 'anonymous'
   
-  return apiCall<HelpRequest>(`/help-requests/${id}/verify`, {
-    method: 'PUT',
-    body: JSON.stringify({ verified, verifiedBy: verifiedByUser }),
+  const endpoint = `/help-requests/${id}/verify`
+  const requestBody = { verified, verifiedBy: verifiedByUser }
+  
+  // Debug logging
+  console.log('Verifying request:', { 
+    id, 
+    verified, 
+    verifiedBy: verifiedByUser,
+    endpoint, 
+    apiBaseUrl: API_BASE_URL,
+    fullUrl: `${API_BASE_URL}${endpoint}`,
+    requestBody
   })
+  
+  try {
+    return await apiCall<HelpRequest>(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    })
+  } catch (error: any) {
+    console.error('Verification failed:', {
+      id,
+      verified,
+      error: error.message,
+      status: error.status,
+      data: error.data
+    })
+    throw error
+  }
 }
 
 export async function verifyDisasterCenter(id: string, verified: boolean = true, verifiedBy?: string): Promise<DisasterCenter> {
