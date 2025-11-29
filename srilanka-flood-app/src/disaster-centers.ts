@@ -179,8 +179,7 @@ export function createDashboardHTML(): string {
           <div class="section-header">
             <h2 data-i18n="requests.title">📋 ${tr.requests.title}</h2>
           </div>
-          <!-- Desktop Table View -->
-          <div class="table-container requests-table-wrapper">
+          <div class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
@@ -199,9 +198,7 @@ export function createDashboardHTML(): string {
               <tbody id="requests-table-body">
               </tbody>
             </table>
-          </div>
-          <!-- Mobile Card View -->
-          <div id="requests-mobile-container" class="requests-mobile-container">
+            <div id="requests-container" style="display: none;"></div>
           </div>
         </section>
       </main>
@@ -1116,15 +1113,12 @@ function filterCentersTable(searchTerm: string): void {
 // Display Help Requests
 function displayHelpRequests(container: HTMLElement, requests: any[] = []): void {
   const tableBody = container.querySelector<HTMLTableSectionElement>('#requests-table-body')
-  const mobileContainer = container.querySelector<HTMLDivElement>('#requests-mobile-container')
-  
-  if (!tableBody || !mobileContainer) return
+  if (!tableBody) return
 
   const tr = t()
 
   if (requests.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
-    mobileContainer.innerHTML = `<div style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</div>`
+    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: #666;" data-i18n="requests.noRequests">${tr.requests.noRequests}</td></tr>`
     return
   }
 
@@ -1135,7 +1129,6 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
     return dateB - dateA
   })
 
-  // Render desktop table view
   tableBody.innerHTML = sorted.map((req: any, i: number) => {
     const date = new Date(req.timestamp || req.createdAt || Date.now())
     const needsIcons: Record<string, string> = {
@@ -1207,101 +1200,6 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
     `
   }).join('')
   
-  // Render mobile card view
-  mobileContainer.innerHTML = sorted.map((req: any, i: number) => {
-    const date = new Date(req.timestamp || req.createdAt || Date.now())
-    const needsIcons: Record<string, string> = {
-      shelter: '🏠',
-      food: '🍽️',
-      medical: '🏥',
-      clothing: '👕',
-      transportation: '🚗'
-    }
-    
-    const urgentNeedsHtml = req.urgentNeeds.map((need: string) => 
-      `<span class="need-tag" style="display: inline-block; margin: 2px; padding: 4px 8px; background: #fef3c7; border-radius: 4px; font-size: 0.8rem;">${needsIcons[need] || '📌'} ${need}</span>`
-    ).join('')
-    
-    const urgencyLevel = req.urgencyLevel || 'moderate'
-    const urgencyColors: Record<string, string> = {
-      critical: '#dc3545',
-      urgent: '#ff9800',
-      moderate: '#ffc107'
-    }
-    const urgencyBadge = `<span class="urgency-badge" style="display: inline-block; padding: 4px 8px; background: ${urgencyColors[urgencyLevel] || '#ffc107'}; color: white; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">${urgencyLevel.charAt(0).toUpperCase() + urgencyLevel.slice(1)}</span>`
-    
-    const verifiedBadge = req.verified 
-      ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #10b981; color: white; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">✓ ${tr.requests.verified || 'Verified'}</span>`
-      : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #ef4444; color: white; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">✗ ${tr.requests.unverified || 'Unverified'}</span>`
-    
-    return `
-      <div class="request-card-mobile" data-request-id="${req.id || ''}">
-        <div class="request-card-header">
-          <div class="request-card-number">
-            <span class="request-icon">🚨</span>
-            <span class="request-number-text">#${i + 1}</span>
-          </div>
-          <div class="request-card-badges">
-            ${urgencyBadge}
-            ${verifiedBadge}
-          </div>
-        </div>
-        <div class="request-card-body">
-          <div class="request-field">
-            <div class="field-icon">👤</div>
-            <div class="field-content">
-              <strong>${tr.requests.name || 'Name'}</strong>
-              <span>${req.name}</span>
-            </div>
-          </div>
-          <div class="request-field">
-            <div class="field-icon">📞</div>
-            <div class="field-content">
-              <strong>${tr.requests.phone || 'Phone'}</strong>
-              <a href="tel:${req.phone}" class="phone-link">${req.phone}</a>
-            </div>
-          </div>
-          <div class="request-field">
-            <div class="field-icon">📍</div>
-            <div class="field-content">
-              <strong>${tr.requests.location || 'Location'}</strong>
-              <span>${req.location || 'Location not specified'}</span>
-              ${req.latitude && req.longitude ? `<a href="https://www.google.com/maps?q=${req.latitude},${req.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem; margin-top: 4px; display: inline-block;">🗺️ View on Map</a>` : ''}
-            </div>
-          </div>
-          <div class="request-field">
-            <div class="field-icon">👥</div>
-            <div class="field-content">
-              <strong>${tr.requests.people || 'People'}</strong>
-              <span>${req.numberOfPeople}</span>
-            </div>
-          </div>
-          ${req.urgentNeeds && req.urgentNeeds.length > 0 ? `
-          <div class="request-field">
-            <div class="field-icon">📋</div>
-            <div class="field-content">
-              <strong>${tr.requests.needs || 'Urgent Needs'}</strong>
-              <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">${urgentNeedsHtml}</div>
-            </div>
-          </div>
-          ` : ''}
-          <div class="request-field">
-            <div class="field-icon">📅</div>
-            <div class="field-content">
-              <strong>Date</strong>
-              <span>${date.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-        <div class="request-card-actions">
-          <a href="tel:${req.phone}" class="btn-action-mobile btn-call">📞 ${tr.requests.call || 'Call'}</a>
-          ${req.latitude && req.longitude ? `<button class="btn-action-mobile btn-map" data-lat="${req.latitude}" data-lng="${req.longitude}">🗺️ View on Map</button>` : ''}
-          ${req.id ? `<button class="btn-action-mobile btn-verify verify-btn-mobile" data-id="${req.id}" data-verified="${req.verified ? 'true' : 'false'}" data-request='${JSON.stringify(req).replace(/'/g, "&apos;")}'>${req.verified ? '❌ ' + (tr.requests.unverify || 'Unverify') : '✓ ' + (tr.requests.verify || 'Verify')}</button>` : ''}
-        </div>
-      </div>
-    `
-  }).join('')
-  
   // Add click handlers for map buttons
   tableBody.querySelectorAll('.btn-action[data-lat]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1336,61 +1234,6 @@ function displayHelpRequests(container: HTMLElement, requests: any[] = []): void
       const requestData = (btn as HTMLElement).dataset.request
       
       console.log('Verify button clicked', { requestId, isVerified, requestData })
-      
-      if (!requestId) {
-        console.error('No request ID found')
-        return
-      }
-      
-      // Parse request data
-      let request: any = null
-      if (requestData) {
-        try {
-          request = JSON.parse(requestData.replace(/&apos;/g, "'"))
-        } catch (e) {
-          console.error('Error parsing request data:', e)
-        }
-      }
-      
-      // Show verification modal/form (works without authentication)
-      showVerificationModal(requestId, request, isVerified, container)
-    })
-  })
-  
-  // Add click handlers for map buttons (mobile cards)
-  mobileContainer.querySelectorAll('.btn-map').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
-      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
-      if (dashboardMap) {
-        dashboardMap.setCenter({ lat, lng })
-        dashboardMap.setZoom(15)
-        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
-        if (overviewNav) (overviewNav as HTMLElement).click()
-        
-        // Find and trigger click on the help request marker at this location
-        const marker = markers.find(m => {
-          const pos = m.getPosition()
-          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
-        })
-        if (marker) {
-          google.maps.event.trigger(marker, 'click')
-        }
-      }
-    })
-  })
-  
-  // Add click handlers for verify/unverify buttons (mobile cards)
-  mobileContainer.querySelectorAll('.verify-btn-mobile').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      
-      const requestId = (btn as HTMLElement).dataset.id
-      const isVerified = (btn as HTMLElement).dataset.verified === 'true'
-      const requestData = (btn as HTMLElement).dataset.request
-      
-      console.log('Verify button clicked (mobile)', { requestId, isVerified, requestData })
       
       if (!requestId) {
         console.error('No request ID found')
