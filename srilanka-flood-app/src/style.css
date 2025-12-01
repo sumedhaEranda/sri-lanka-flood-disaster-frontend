@@ -140,6 +140,45 @@ body {
   font-size: 1.25rem;
 }
 
+/* Mobile Language Switcher in Topbar */
+.language-switcher-mobile {
+  display: none; /* Hidden on desktop */
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.language-switcher-mobile .lang-btn {
+  background: rgba(102, 126, 234, 0.1);
+  border: 2px solid transparent;
+  color: #667eea;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.language-switcher-mobile .lang-btn:hover {
+  background: rgba(102, 126, 234, 0.15);
+  border-color: #667eea;
+}
+
+.language-switcher-mobile .lang-btn.active {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.language-switcher-mobile .lang-btn span:first-child {
+  font-size: 1rem;
+}
+
 /* Mobile Menu Toggle - Hidden on Desktop */
 .mobile-menu-toggle {
   display: none;
@@ -203,6 +242,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  flex-wrap: wrap;
 }
 
 .topbar-left h1 {
@@ -1858,6 +1898,30 @@ body {
     display: none !important;
   }
   
+  /* Show mobile language switcher in topbar */
+  .language-switcher-mobile {
+    display: flex !important;
+  }
+  
+  .topbar-right {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  
+  .topbar-right .primary-btn {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .topbar-right .icon-btn {
+    order: 2;
+  }
+  
+  .language-switcher-mobile {
+    order: 1;
+  }
+  
   .sidebar-nav {
     display: flex !important;
     position: absolute !important;
@@ -2282,6 +2346,40 @@ body {
   
   .topbar-subtitle {
     font-size: 0.75rem;
+  }
+  
+  /* Language switcher in topbar for small mobile */
+  .language-switcher-mobile {
+    display: flex !important;
+  }
+  
+  .topbar-right {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  
+  .language-switcher-mobile {
+    order: 1;
+    width: 100%;
+    justify-content: flex-start;
+    margin-bottom: 0.5rem;
+  }
+  
+  .language-switcher-mobile .lang-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    flex: 0 0 auto;
+  }
+  
+  .topbar-right .icon-btn {
+    order: 2;
+  }
+  
+  .topbar-right .primary-btn {
+    order: 3;
+    width: 100%;
+    justify-content: center;
   }
   
   .stats-section {

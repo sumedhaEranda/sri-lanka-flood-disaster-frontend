@@ -97,6 +97,17 @@ export function createDashboardHTML(): string {
             <p class="topbar-subtitle" data-i18n="dashboard.subtitle">${tr.dashboard.subtitle}</p>
           </div>
           <div class="topbar-right">
+            <!-- Language switcher for mobile (visible on mobile, hidden on desktop) -->
+            <div class="language-switcher-mobile">
+              <button class="lang-btn ${currentLang === 'en' ? 'active' : ''}" data-lang="en">
+                <span>🇬🇧</span>
+                <span>English</span>
+              </button>
+              <button class="lang-btn ${currentLang === 'si' ? 'active' : ''}" data-lang="si">
+                <span>🇱🇰</span>
+                <span>සිංහල</span>
+              </button>
+            </div>
             <button id="refresh-btn" class="icon-btn" title="${tr.dashboard.refresh}">
               <span>🔄</span>
             </button>
@@ -538,8 +549,9 @@ async function loadHelpRequests(container: HTMLElement): Promise<void> {
   }
 }
 
-// Setup language switcher
+// Setup language switcher (handles both sidebar and topbar language buttons)
 function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void): void {
+  // Get all language buttons (both sidebar and topbar)
   const langButtons = container.querySelectorAll<HTMLButtonElement>('.lang-btn')
   
   langButtons.forEach(btn => {
@@ -1552,7 +1564,23 @@ function showVerificationModal(
         console.log(message)
       } catch (error: any) {
         console.error('Error verifying request:', error)
-        alert(error.message || 'Failed to update verification status. Please try again.')
+        
+        // Show user-friendly error message based on error type
+        let errorMessage = 'Failed to update verification status. Please try again.'
+        
+        if (error.status === 500) {
+          errorMessage = 'Server error: The backend encountered an error. Please check backend logs or contact support.'
+        } else if (error.status === 404) {
+          errorMessage = 'Request not found. It may have been deleted.'
+        } else if (error.status === 400) {
+          errorMessage = error.message || 'Invalid request. Please check the data and try again.'
+        } else if (error.message) {
+          errorMessage = error.message
+        } else if (error.data && error.data.message) {
+          errorMessage = error.data.message
+        }
+        
+        alert(errorMessage)
         ;(confirmBtn as HTMLButtonElement).disabled = false
         ;(confirmBtn as HTMLElement).innerHTML = isVerified ? (tr.requests.unverify || 'Unverify') : (tr.requests.verify || 'Verify')
       }
