@@ -1234,7 +1234,7 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
 }
 
 // Load flood/landslide reports from API
-async function loadFloodLandslideReports(container: HTMLElement): Promise<void> {
+async function loadFloodLandslideReports(_container: HTMLElement): Promise<void> {
   try {
     const response = await fetchFloodLandslideReports({ limit: 100, sort: 'timestamp', order: 'desc' })
     floodLandslideReports = response.data.filter(report => report.latitude && report.longitude)
@@ -1503,7 +1503,6 @@ function displayFloodLandslideReports(container: HTMLElement): void {
 // Show edit modal for flood/landslide report
 function showEditFloodLandslideModal(report: FloodLandslideReport, container: HTMLElement): void {
   const tr = t()
-  const currentLang = getCurrentLanguage()
   
   const modal = document.createElement('div')
   modal.className = 'modal-overlay'

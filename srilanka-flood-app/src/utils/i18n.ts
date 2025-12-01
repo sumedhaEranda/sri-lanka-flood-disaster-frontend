@@ -201,6 +201,7 @@ export interface Translations {
     cancel: string
     date?: string
     action?: string
+    locationError?: string
   }
 }
 
@@ -403,7 +404,8 @@ const translations: Record<Language, Translations> = {
       updateError: 'Failed to update report. Please try again.',
       cancel: 'Cancel',
       date: 'Date',
-      action: 'Action'
+      action: 'Action',
+      locationError: 'Location must be within Sri Lanka. Please select a location inside Sri Lanka.'
     }
   },
   si: {
@@ -603,7 +605,10 @@ const translations: Record<Language, Translations> = {
       update: 'වාර්තාව යාවත්කාලීන කරන්න',
       updateSuccess: 'වාර්තාව සාර්ථකව යාවත්කාලීන කරන ලදී!',
       updateError: 'වාර්තාව යාවත්කාලීන කිරීමට අසමත් විය. කරුණාකර නැවත උත්සාහ කරන්න.',
-      cancel: 'අවලංගු කරන්න'
+      cancel: 'අවලංගු කරන්න',
+      date: 'දිනය',
+      action: 'ක්‍රියාමාර්ග',
+      locationError: 'ස්ථානය ශ්‍රී ලංකාව තුළ විය යුතුය. කරුණාකර ශ්‍රී ලංකාව තුළ ස්ථානයක් තෝරන්න.'
     }
   }
 }

@@ -560,7 +560,7 @@ function initializeFloodLandslideFormMap(
   locationStatus: HTMLElement | null,
   latitudeInput: HTMLInputElement | null,
   longitudeInput: HTMLInputElement | null,
-  getLocationBtn: HTMLButtonElement | null
+  _getLocationBtn: HTMLButtonElement | null
 ): void {
   try {
     if (mapContainer.hasChildNodes()) {
