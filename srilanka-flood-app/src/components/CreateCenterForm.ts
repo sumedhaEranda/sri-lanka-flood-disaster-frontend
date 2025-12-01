@@ -1,7 +1,7 @@
-import type { DisasterCenter } from './disaster-centers.ts'
-import { t, getCurrentLanguage } from './i18n.ts'
-import { createDisasterCenter } from './api.ts'
-import { formatPhoneNumber, validatePhoneNumber } from './phone-formatter.ts'
+import type { DisasterCenter } from '../types/index.ts'
+import { t, getCurrentLanguage } from '../utils/i18n.ts'
+import { createDisasterCenter } from '../services/api.ts'
+import { formatPhoneNumber, validatePhoneNumber } from '../utils/phone-formatter.ts'
 
 // Declare Google Maps
 declare const google: any

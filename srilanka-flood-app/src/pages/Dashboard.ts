@@ -1,5 +1,5 @@
-import { t, getCurrentLanguage, setLanguage, type Language } from './i18n.ts'
-import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, type DisasterCenter, type Statistics, type HelpRequest } from './api.ts'
+import { t, getCurrentLanguage, setLanguage, type Language } from '../utils/i18n.ts'
+import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, fetchFloodLandslideReports, deleteFloodLandslideReport, updateFloodLandslideReport, type DisasterCenter, type Statistics, type HelpRequest, type FloodLandslideReport } from '../services/api.ts'
 
 // Export DisasterCenter type for use in other files
 export type { DisasterCenter }
@@ -9,6 +9,9 @@ export let disasterCenters: DisasterCenter[] = []
 
 // Help requests loaded from API
 let helpRequests: HelpRequest[] = []
+
+// Flood/Landslide reports loaded from API
+let floodLandslideReports: FloodLandslideReport[] = []
 
 // Statistics loaded from API (stored for potential future use)
 // let dashboardStatistics: Statistics | null = null
@@ -34,6 +37,7 @@ declare const google: any
 let dashboardMap: any = null
 let markers: any[] = []
 let helpRequestMarkers: any[] = [] // Track help request markers separately
+let floodLandslideMarkers: any[] = [] // Track flood/landslide markers separately
 let currentInfoWindow: any = null // Track currently open InfoWindow
 let markerJustClicked: boolean = false // Flag to prevent map click from closing just-opened InfoWindow
 let dashboardContainer: HTMLElement | null = null // Store dashboard container for verification
@@ -78,6 +82,14 @@ export function createDashboardHTML(): string {
             <span>➕</span>
             <span data-i18n="sidebar.createCenter">${tr.sidebar.createCenter || 'Create Center'}</span>
           </a>
+          <a href="#" class="nav-item" data-view="flood-landslide">
+            <span>🌊</span>
+            <span data-i18n="sidebar.floodLandslideReports">${tr.sidebar.floodLandslideReports || 'Flood/Landslide Reports'}</span>
+          </a>
+          <a href="#" class="nav-item" id="report-flood-landslide-nav">
+            <span>📝</span>
+            <span data-i18n="sidebar.reportFloodLandslide">${tr.sidebar.reportFloodLandslide || 'Report Flood/Landslide'}</span>
+          </a>
           <div class="language-switcher">
             <button class="lang-btn ${currentLang === 'en' ? 'active' : ''}" data-lang="en">
               <span>🇬🇧</span>
@@ -114,6 +126,10 @@ export function createDashboardHTML(): string {
             <button id="request-help-btn" class="primary-btn">
               <span>➕</span>
               <span data-i18n="dashboard.requestHelp">${tr.dashboard.requestHelp}</span>
+            </button>
+            <button id="report-flood-landslide-btn" class="primary-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+              <span>🌊</span>
+              <span data-i18n="dashboard.reportFloodLandslide">${tr.dashboard.reportFloodLandslide || 'Report Flood/Landslide'}</span>
             </button>
           </div>
         </header>
@@ -152,14 +168,30 @@ export function createDashboardHTML(): string {
         <section class="content-section" id="overview-section">
           <div class="section-header">
             <h2 data-i18n="map.title">📍 ${tr.map.title}</h2>
-            <div class="map-legend">
-              <span class="legend-item"><span class="legend-dot active"></span> <span data-i18n="map.active">${tr.map.active}</span></span>
-              <span class="legend-item"><span class="legend-dot limited"></span> <span data-i18n="map.limited">${tr.map.limited}</span></span>
-              <span class="legend-item"><span class="legend-dot full"></span> <span data-i18n="map.full">${tr.map.full}</span></span>
-              <span class="legend-item"><span class="legend-dot help-request"></span> <span data-i18n="map.helpRequests">${tr.map.helpRequests || 'Help Requests'}</span></span>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div class="map-legend">
+                <span class="legend-item"><span class="legend-dot active"></span> <span data-i18n="map.active">${tr.map.active}</span></span>
+                <span class="legend-item"><span class="legend-dot limited"></span> <span data-i18n="map.limited">${tr.map.limited}</span></span>
+                <span class="legend-item"><span class="legend-dot full"></span> <span data-i18n="map.full">${tr.map.full}</span></span>
+                <span class="legend-item"><span class="legend-dot help-request"></span> <span data-i18n="map.helpRequests">${tr.map.helpRequests || 'Help Requests'}</span></span>
+              </div>
+              <button id="map-fullscreen-btn" class="map-fullscreen-btn" title="${tr.map.fullscreen || 'Full Screen'}" style="background: #667eea; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;">
+                <span>⛶</span>
+                <span data-i18n="map.fullscreen">${tr.map.fullscreen || 'Full Screen'}</span>
+              </button>
             </div>
           </div>
           <div id="dashboard-map" class="map"></div>
+          <div id="map-fullscreen-container" class="map-fullscreen-container" style="display: none;">
+            <div class="map-fullscreen-header">
+              <h2 data-i18n="map.title">📍 ${tr.map.title}</h2>
+              <button id="map-fullscreen-close-btn" class="map-fullscreen-close-btn" title="${tr.map.exitFullscreen || 'Exit Full Screen'}" style="background: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>✕</span>
+                <span data-i18n="map.exitFullscreen">${tr.map.exitFullscreen || 'Exit Full Screen'}</span>
+              </button>
+            </div>
+            <div id="dashboard-map-fullscreen" class="map-fullscreen"></div>
+          </div>
         </section>
 
         <section class="content-section" id="centers-section" style="display: none;">
@@ -215,17 +247,43 @@ export function createDashboardHTML(): string {
           <div id="requests-mobile-grid" class="requests-mobile-grid">
           </div>
         </section>
+
+        <section class="content-section" id="flood-landslide-section" style="display: none;">
+          <div class="section-header">
+            <h2 data-i18n="floodLandslide.reports">🌊 ${tr.floodLandslide.reports}</h2>
+          </div>
+          <!-- Desktop Table View -->
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th data-i18n="floodLandslide.type">${tr.floodLandslide.type}</th>
+                  <th data-i18n="floodLandslide.location">${tr.floodLandslide.location}</th>
+                  <th data-i18n="floodLandslide.severity">${tr.floodLandslide.severity}</th>
+                  <th data-i18n="floodLandslide.description">${tr.floodLandslide.description}</th>
+                  <th data-i18n="floodLandslide.reportedBy">${tr.floodLandslide.reportedBy}</th>
+                  <th data-i18n="floodLandslide.date">${tr.floodLandslide.date || 'Date'}</th>
+                  <th data-i18n="floodLandslide.action">${tr.floodLandslide.action || 'Action'}</th>
+                </tr>
+              </thead>
+              <tbody id="flood-landslide-table-body">
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
   `
 }
 
 // Setup Dashboard
-export async function setupDashboard(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void): Promise<void> {
+export async function setupDashboard(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void, showFloodLandslideCallback?: () => void): Promise<void> {
   const mapContainer = container.querySelector<HTMLDivElement>('#dashboard-map')
   const requestHelpNav = container.querySelector<HTMLAnchorElement>('#request-help-nav')
   const requestHelpBtn = container.querySelector<HTMLButtonElement>('#request-help-btn')
   const createCenterNav = container.querySelector<HTMLAnchorElement>('#create-center-nav')
+  const reportFloodLandslideNav = container.querySelector<HTMLAnchorElement>('#report-flood-landslide-nav')
   const navItems = container.querySelectorAll<HTMLAnchorElement>('.nav-item[data-view]')
   const searchInput = container.querySelector<HTMLInputElement>('#search-centers')
 
@@ -247,6 +305,20 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
     createCenterNav.addEventListener('click', (e) => {
       e.preventDefault()
       showCreateCenterCallback()
+    })
+  }
+
+  if (reportFloodLandslideNav && showFloodLandslideCallback) {
+    reportFloodLandslideNav.addEventListener('click', (e) => {
+      e.preventDefault()
+      showFloodLandslideCallback()
+    })
+  }
+
+  const reportFloodLandslideBtn = container.querySelector<HTMLButtonElement>('#report-flood-landslide-btn')
+  if (reportFloodLandslideBtn && showFloodLandslideCallback) {
+    reportFloodLandslideBtn.addEventListener('click', () => {
+      showFloodLandslideCallback()
     })
   }
 
@@ -325,6 +397,12 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
       } else if (view === 'requests') {
         const requestsSection = container.querySelector<HTMLElement>('#requests-section')
         if (requestsSection) requestsSection.style.display = 'block'
+      } else if (view === 'flood-landslide') {
+        const floodLandslideSection = container.querySelector<HTMLElement>('#flood-landslide-section')
+        if (floodLandslideSection) {
+          floodLandslideSection.style.display = 'block'
+          displayFloodLandslideReports(container)
+        }
       }
     })
     
@@ -444,7 +522,115 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
   }
 
   // Language switcher
-  setupLanguageSwitcher(container, showFormCallback, showCreateCenterCallback)
+  setupLanguageSwitcher(container, showFormCallback, showCreateCenterCallback, showFloodLandslideCallback)
+  
+  // Load flood/landslide reports
+  await loadFloodLandslideReports(container)
+
+  // Setup fullscreen map functionality
+  setupMapFullscreen(container)
+}
+
+// Setup fullscreen map functionality
+function setupMapFullscreen(container: HTMLElement): void {
+  const fullscreenBtn = container.querySelector<HTMLButtonElement>('#map-fullscreen-btn')
+  const fullscreenContainer = container.querySelector<HTMLDivElement>('#map-fullscreen-container')
+  const fullscreenCloseBtn = container.querySelector<HTMLButtonElement>('#map-fullscreen-close-btn')
+  const fullscreenMapContainer = container.querySelector<HTMLDivElement>('#dashboard-map-fullscreen')
+
+  if (!fullscreenBtn || !fullscreenContainer || !fullscreenCloseBtn || !fullscreenMapContainer) return
+
+  let fullscreenMap: any = null
+
+  fullscreenBtn.addEventListener('click', () => {
+    fullscreenContainer.style.display = 'block'
+    document.body.style.overflow = 'hidden'
+
+    // Initialize map in fullscreen container if not already initialized
+    if (!fullscreenMap && typeof google !== 'undefined' && google.maps) {
+      const currentCenter = dashboardMap ? dashboardMap.getCenter() : { lat: 7.8731, lng: 80.7718 }
+      const currentZoom = dashboardMap ? dashboardMap.getZoom() : 8
+      
+      fullscreenMap = new google.maps.Map(fullscreenMapContainer, {
+        center: currentCenter,
+        zoom: currentZoom,
+        mapTypeId: dashboardMap ? dashboardMap.getMapTypeId() : 'roadmap',
+        minZoom: 7,
+        maxZoom: 18,
+        restriction: {
+          latLngBounds: {
+            north: 9.8,
+            south: 5.9,
+            east: 81.9,
+            west: 79.7
+          },
+          strictBounds: false
+        },
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      })
+
+      // Copy markers to fullscreen map
+      if (dashboardMap) {
+        markers.forEach(marker => {
+          const position = marker.getPosition()
+          const newMarker = new google.maps.Marker({
+            position: position,
+            map: fullscreenMap,
+            icon: marker.getIcon(),
+            title: marker.getTitle()
+          })
+          
+          // Copy click listeners if any
+          const infoWindow = marker.get('infoWindow')
+          if (infoWindow) {
+            newMarker.addListener('click', () => {
+              infoWindow.open(fullscreenMap, newMarker)
+            })
+          }
+        })
+
+        helpRequestMarkers.forEach(marker => {
+          const position = marker.getPosition()
+          const newMarker = new google.maps.Marker({
+            position: position,
+            map: fullscreenMap,
+            icon: marker.getIcon(),
+            title: marker.getTitle()
+          })
+          
+          const infoWindow = marker.get('infoWindow')
+          if (infoWindow) {
+            newMarker.addListener('click', () => {
+              infoWindow.open(fullscreenMap, newMarker)
+            })
+          }
+        })
+      }
+    } else if (fullscreenMap && dashboardMap) {
+      // Update existing fullscreen map to match current dashboard map
+      fullscreenMap.setCenter(dashboardMap.getCenter())
+      fullscreenMap.setZoom(dashboardMap.getZoom())
+    }
+  })
+
+  fullscreenCloseBtn.addEventListener('click', () => {
+    fullscreenContainer.style.display = 'none'
+    document.body.style.overflow = ''
+  })
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && fullscreenContainer.style.display === 'block') {
+      fullscreenContainer.style.display = 'none'
+      document.body.style.overflow = ''
+    }
+  })
 }
 
 // Load all dashboard data from API
@@ -550,7 +736,7 @@ async function loadHelpRequests(container: HTMLElement): Promise<void> {
 }
 
 // Setup language switcher (handles both sidebar and topbar language buttons)
-function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void): void {
+function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void, showFloodLandslideCallback?: () => void): void {
   // Get all language buttons (both sidebar and topbar)
   const langButtons = container.querySelectorAll<HTMLButtonElement>('.lang-btn')
   
@@ -562,7 +748,7 @@ function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => v
       const app = document.querySelector<HTMLDivElement>('#app')
       if (app) {
         app.innerHTML = createDashboardHTML()
-        await setupDashboard(app, showFormCallback, showCreateCenterCallback)
+        await setupDashboard(app, showFormCallback, showCreateCenterCallback, showFloodLandslideCallback)
       }
     })
   })
@@ -666,6 +852,9 @@ function initializeMap(mapContainer: HTMLDivElement): void {
     // Add help request markers first (so they appear below center markers)
     addHelpRequestMarkersToMap(bounds)
     
+    // Add flood/landslide markers
+    addFloodLandslideMarkersToMap(bounds)
+    
     disasterCenters.forEach(center => {
       const color = center.status === 'active' ? '#28a745' : center.status === 'limited' ? '#ffc107' : '#dc3545'
       
@@ -761,6 +950,9 @@ function initializeMap(mapContainer: HTMLDivElement): void {
         // Open new InfoWindow and track it
         infoWindow.open(dashboardMap, marker)
         currentInfoWindow = infoWindow
+        
+        // Store infoWindow with marker for fullscreen map
+        marker.set('infoWindow', infoWindow)
         
         // Add verify button handler after info window is opened
         setTimeout(() => {
@@ -986,6 +1178,9 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
       infoWindow.open(dashboardMap, marker)
       currentInfoWindow = infoWindow
       
+      // Store infoWindow with marker for fullscreen map
+      marker.set('infoWindow', infoWindow)
+      
       // Add verify button handler after info window is opened
       if (request.id) {
         setTimeout(() => {
@@ -1035,6 +1230,377 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     markers.push(marker)
     helpRequestMarkers.push(marker) // Track help request markers separately
     bounds.extend({ lat: request.latitude, lng: request.longitude })
+  })
+}
+
+// Load flood/landslide reports from API
+async function loadFloodLandslideReports(container: HTMLElement): Promise<void> {
+  try {
+    const response = await fetchFloodLandslideReports({ limit: 100, sort: 'timestamp', order: 'desc' })
+    floodLandslideReports = response.data.filter(report => report.latitude && report.longitude)
+    
+    // Add markers to map if map is already initialized
+    if (dashboardMap && typeof google !== 'undefined' && google.maps) {
+      addFloodLandslideMarkersToMap()
+    }
+  } catch (error) {
+    console.error('Error loading flood/landslide reports:', error)
+    floodLandslideReports = []
+  }
+}
+
+// Add flood/landslide markers to the map
+function addFloodLandslideMarkersToMap(bounds?: any): void {
+  if (!dashboardMap || typeof google === 'undefined' || !google.maps) return
+  
+  const tr = t()
+  
+  // Create bounds if not provided
+  if (!bounds) {
+    bounds = new google.maps.LatLngBounds()
+  }
+  
+  floodLandslideReports.forEach(report => {
+    if (!report.latitude || !report.longitude) return
+    
+    // Determine marker color based on type and severity
+    let markerColor = '#667eea' // Default blue for flood
+    if (report.type === 'landslide') {
+      markerColor = '#8b4513' // Brown for landslide
+    }
+    
+    // Adjust color based on severity
+    if (report.severity === 'critical') {
+      markerColor = '#dc3545' // Red
+    } else if (report.severity === 'high') {
+      markerColor = '#ff9800' // Orange
+    } else if (report.severity === 'medium') {
+      markerColor = '#ffc107' // Yellow
+    } else if (report.severity === 'low') {
+      markerColor = '#28a745' // Green
+    }
+    
+    // Create custom marker icon (triangle for flood/landslide)
+    const markerIcon = {
+      path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+      scale: 10,
+      fillColor: markerColor,
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      rotation: 0
+    }
+    
+    // Create marker
+    const marker = new google.maps.Marker({
+      position: { lat: report.latitude, lng: report.longitude },
+      map: dashboardMap,
+      icon: markerIcon,
+      title: `${report.type === 'flood' ? tr.floodLandslide.flood : tr.floodLandslide.landslide}: ${report.location}`
+    })
+    
+    // Format severity
+    const severityLabels: Record<string, string> = {
+      low: tr.floodLandslide.low,
+      medium: tr.floodLandslide.medium,
+      high: tr.floodLandslide.high,
+      critical: tr.floodLandslide.critical
+    }
+    
+    const severityBadge = `<span style="display: inline-block; padding: 4px 8px; background: ${markerColor}; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">${severityLabels[report.severity] || report.severity}</span>`
+    
+    const imageHtml = report.image ? `
+      <div style="margin: 10px 0; border-radius: 8px; overflow: hidden;">
+        <img src="${report.image}" 
+             alt="${report.type}" 
+             style="width: 100%; max-height: 200px; object-fit: cover; display: block; cursor: pointer;"
+             onclick="window.open('${report.image}', '_blank')"
+             onerror="this.style.display='none'">
+      </div>
+    ` : ''
+    
+    const infoWindowContent = `
+      <div style="padding: 10px; min-width: 250px; max-width: 350px;">
+        <div style="border-left: 4px solid ${markerColor}; padding-left: 10px; margin-bottom: 10px;">
+          <h3 style="margin: 0 0 5px 0; color: #1e293b; font-size: 1.1rem;">
+            ${report.type === 'flood' ? '🌊 ' + tr.floodLandslide.flood : '⛰️ ' + tr.floodLandslide.landslide}
+          </h3>
+          <p style="margin: 0; color: #64748b; font-size: 0.9rem;">📍 ${report.location}</p>
+        </div>
+        ${severityBadge}
+        ${report.description ? `<p style="margin: 10px 0; color: #475569; font-size: 0.9rem;">${report.description}</p>` : ''}
+        ${report.reportedBy ? `<p style="margin: 5px 0; color: #64748b; font-size: 0.85rem;"><strong>${tr.floodLandslide.reportedBy}:</strong> ${report.reportedBy}</p>` : ''}
+        ${report.phone ? `<p style="margin: 5px 0; color: #64748b; font-size: 0.85rem;"><strong>${tr.floodLandslide.phone}:</strong> <a href="tel:${report.phone}" style="color: #667eea;">${report.phone}</a></p>` : ''}
+        ${imageHtml}
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+          <a href="https://www.google.com/maps?q=${report.latitude},${report.longitude}" target="_blank" style="display: inline-block; padding: 8px 16px; background: ${markerColor}; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; text-align: center;">
+            🗺️ ${tr.floodLandslide.viewOnMap}
+          </a>
+        </div>
+      </div>
+    `
+    
+    // Create info window
+    const infoWindow = new google.maps.InfoWindow({
+      content: infoWindowContent
+    })
+    
+    // Add click listener to marker
+    marker.addListener('click', () => {
+      if (currentInfoWindow) {
+        currentInfoWindow.close()
+      }
+      infoWindow.open(dashboardMap, marker)
+      currentInfoWindow = infoWindow
+    })
+    
+    // Store infoWindow with marker for fullscreen map
+    marker.set('infoWindow', infoWindow)
+    
+    markers.push(marker)
+    floodLandslideMarkers.push(marker) // Track flood/landslide markers separately
+    bounds.extend({ lat: report.latitude, lng: report.longitude })
+  })
+}
+
+// Display Flood/Landslide Reports Table
+function displayFloodLandslideReports(container: HTMLElement): void {
+  const tableBody = container.querySelector<HTMLTableSectionElement>('#flood-landslide-table-body')
+  if (!tableBody) return
+
+  const tr = t()
+
+  if (floodLandslideReports.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: #666;" data-i18n="floodLandslide.noReports">${tr.floodLandslide.noReports}</td></tr>`
+    return
+  }
+
+  const sorted = [...floodLandslideReports].sort((a: any, b: any) => {
+    const dateA = new Date(a.timestamp || a.createdAt || 0).getTime()
+    const dateB = new Date(b.timestamp || b.createdAt || 0).getTime()
+    return dateB - dateA
+  })
+
+  tableBody.innerHTML = sorted.map((report: any, i: number) => {
+    const date = new Date(report.timestamp || report.createdAt || Date.now())
+    const typeLabel = report.type === 'flood' ? tr.floodLandslide.flood : tr.floodLandslide.landslide
+    const typeIcon = report.type === 'flood' ? '🌊' : '⛰️'
+    
+    const severityLabels: Record<string, string> = {
+      low: tr.floodLandslide.low,
+      medium: tr.floodLandslide.medium,
+      high: tr.floodLandslide.high,
+      critical: tr.floodLandslide.critical
+    }
+    
+    const severityColors: Record<string, string> = {
+      low: '#28a745',
+      medium: '#ffc107',
+      high: '#ff9800',
+      critical: '#dc3545'
+    }
+    
+    const severityBadge = `<span style="display: inline-block; padding: 4px 8px; background: ${severityColors[report.severity] || '#667eea'}; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">${severityLabels[report.severity] || report.severity}</span>`
+
+    const locationCell = report.latitude && report.longitude
+      ? `<div style="max-width: 250px;">
+          <div style="margin-bottom: 4px; color: #475569; font-weight: 500;">📍 ${report.location || 'Location not specified'}</div>
+          <a href="https://www.google.com/maps?q=${report.latitude},${report.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+            🗺️ ${tr.floodLandslide.viewOnMap}
+          </a>
+        </div>`
+      : `<div style="max-width: 250px;">
+          <div style="color: #475569;">📍 ${report.location || 'Location not specified'}</div>
+        </div>`
+
+    return `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span style="font-size: 1.2rem;">${typeIcon}</span> ${typeLabel}</td>
+        <td>${locationCell}</td>
+        <td>${severityBadge}</td>
+        <td style="max-width: 300px;">${report.description || '-'}</td>
+        <td>${report.reportedBy || '-'}</td>
+        <td>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+        <td>
+          ${report.latitude && report.longitude ? `
+            <button class="btn-action" data-lat="${report.latitude}" data-lng="${report.longitude}" title="${tr.floodLandslide.viewOnMap || 'View on Map'}">🗺️</button>
+          ` : ''}
+          ${report.id ? `
+            <button class="btn-action edit-btn" data-id="${report.id}" data-report='${JSON.stringify(report).replace(/'/g, "&#39;")}' title="${tr.floodLandslide.edit || 'Edit Report'}">✏️</button>
+            <button class="btn-action delete-btn" data-id="${report.id}" title="${tr.floodLandslide.delete || 'Delete Report'}">🗑️</button>
+          ` : ''}
+        </td>
+      </tr>
+    `
+  }).join('')
+
+  // Add click handlers for map buttons
+  tableBody.querySelectorAll('.btn-action[data-lat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
+      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat, lng })
+        dashboardMap.setZoom(15)
+        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
+        if (overviewNav) (overviewNav as HTMLElement).click()
+
+        const marker = markers.find(m => {
+          const pos = m.getPosition()
+          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
+        })
+        if (marker) {
+          google.maps.event.trigger(marker, 'click')
+        }
+      }
+    })
+  })
+
+  // Add click handlers for edit buttons
+  tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const reportData = (btn as HTMLElement).dataset.report
+      if (!reportData) return
+
+      try {
+        const report: FloodLandslideReport = JSON.parse(reportData.replace(/&#39;/g, "'"))
+        showEditFloodLandslideModal(report, container)
+      } catch (error) {
+        console.error('Error parsing report data:', error)
+        alert('Failed to load report for editing.')
+      }
+    })
+  })
+
+  // Add click handlers for delete buttons
+  tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const reportId = (btn as HTMLElement).dataset.id
+      if (!reportId) return
+
+      if (confirm(tr.floodLandslide.delete + '?')) {
+        try {
+          await deleteFloodLandslideReport(reportId)
+          // Reload reports
+          await loadFloodLandslideReports(container)
+          displayFloodLandslideReports(container)
+        } catch (error) {
+          console.error('Error deleting report:', error)
+          alert('Failed to delete report. Please try again.')
+        }
+      }
+    })
+  })
+}
+
+// Show edit modal for flood/landslide report
+function showEditFloodLandslideModal(report: FloodLandslideReport, container: HTMLElement): void {
+  const tr = t()
+  const currentLang = getCurrentLanguage()
+  
+  const modal = document.createElement('div')
+  modal.className = 'modal-overlay'
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 600px;">
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+      <h2>${tr.floodLandslide.edit || 'Edit Report'}</h2>
+      
+      <form id="edit-flood-landslide-form">
+        <div class="form-group">
+          <label>${tr.floodLandslide.type} *</label>
+          <select id="edit-type" name="type" required>
+            <option value="flood" ${report.type === 'flood' ? 'selected' : ''}>${tr.floodLandslide.flood}</option>
+            <option value="landslide" ${report.type === 'landslide' ? 'selected' : ''}>${tr.floodLandslide.landslide}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>${tr.floodLandslide.severity} *</label>
+          <select id="edit-severity" name="severity" required>
+            <option value="low" ${report.severity === 'low' ? 'selected' : ''}>${tr.floodLandslide.low}</option>
+            <option value="medium" ${report.severity === 'medium' ? 'selected' : ''}>${tr.floodLandslide.medium}</option>
+            <option value="high" ${report.severity === 'high' ? 'selected' : ''}>${tr.floodLandslide.high}</option>
+            <option value="critical" ${report.severity === 'critical' ? 'selected' : ''}>${tr.floodLandslide.critical}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>${tr.floodLandslide.location} *</label>
+          <input type="text" id="edit-location" name="location" value="${report.location || ''}" required>
+        </div>
+
+        <div class="form-group">
+          <label>${tr.floodLandslide.description}</label>
+          <textarea id="edit-description" name="description" rows="4">${report.description || ''}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label>${tr.floodLandslide.reportedBy}</label>
+          <input type="text" id="edit-reportedBy" name="reportedBy" value="${report.reportedBy || ''}">
+        </div>
+
+        <div class="form-group">
+          <label>${tr.floodLandslide.phone}</label>
+          <input type="tel" id="edit-phone" name="phone" value="${report.phone || ''}">
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+          <button type="submit" class="submit-btn" style="flex: 1;">${tr.floodLandslide.update || 'Update Report'}</button>
+          <button type="button" class="btn-secondary" onclick="this.closest('.modal-overlay').remove()" style="flex: 1;">${tr.floodLandslide.cancel || 'Cancel'}</button>
+        </div>
+      </form>
+    </div>
+  `
+
+  document.body.appendChild(modal)
+
+  // Handle form submission
+  const form = modal.querySelector<HTMLFormElement>('#edit-flood-landslide-form')
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      
+      if (!report.id) {
+        alert('Report ID is missing. Cannot update.')
+        return
+      }
+
+      const formData = new FormData(form)
+      const updateData: Partial<FloodLandslideReport> = {
+        type: formData.get('type') as 'flood' | 'landslide',
+        severity: formData.get('severity') as 'low' | 'medium' | 'high' | 'critical',
+        location: formData.get('location') as string,
+        description: formData.get('description') as string || undefined,
+        reportedBy: formData.get('reportedBy') as string || undefined,
+        phone: formData.get('phone') as string || undefined,
+      }
+
+      try {
+        await updateFloodLandslideReport(report.id, updateData)
+        modal.remove()
+        // Reload reports
+        await loadFloodLandslideReports(container)
+        displayFloodLandslideReports(container)
+        alert(tr.floodLandslide.updateSuccess || 'Report updated successfully!')
+      } catch (error) {
+        console.error('Error updating report:', error)
+        alert(tr.floodLandslide.updateError || 'Failed to update report. Please try again.')
+      }
+    })
+  }
+
+  // Close modal on overlay click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove()
+    }
   })
 }
 

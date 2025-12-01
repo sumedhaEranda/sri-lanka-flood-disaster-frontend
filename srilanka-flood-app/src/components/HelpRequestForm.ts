@@ -1,6 +1,6 @@
-import { t, getCurrentLanguage } from './i18n.ts'
-import { submitHelpRequest } from './api.ts'
-import { formatPhoneNumber, validatePhoneNumber } from './phone-formatter.ts'
+import { t, getCurrentLanguage } from '../utils/i18n.ts'
+import { submitHelpRequest } from '../services/api.ts'
+import { formatPhoneNumber, validatePhoneNumber } from '../utils/phone-formatter.ts'
 
 // Declare Google Maps
 declare const google: any

@@ -1,80 +1,22 @@
 // API Service for Backend Integration
+import type {
+  DisasterCenter,
+  HelpRequest,
+  FloodLandslideReport,
+  Statistics,
+  PaginatedResponse
+} from '../types/index.ts'
+
+// Re-export types for convenience
+export type {
+  DisasterCenter,
+  HelpRequest,
+  FloodLandslideReport,
+  Statistics,
+  PaginatedResponse
+} from '../types/index.ts'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
-
-// Types
-export interface DisasterCenter {
-  id?: string
-  name: string
-  address: string
-  phone: string
-  latitude: number
-  longitude: number
-  capacity: number
-  services: string[]
-  status: 'active' | 'full' | 'limited'
-  image?: string
-  additionalInfo?: string
-  createdAt?: string
-  updatedAt?: string
-  verified?: boolean
-  verifiedAt?: string
-  verifiedBy?: string
-}
-
-export interface HelpRequest {
-  id?: string
-  name: string
-  phone: string
-  location: string
-  latitude?: number
-  longitude?: number
-  numberOfPeople: number
-  urgentNeeds: string[]
-  urgencyLevel: string
-  additionalInfo: string
-  verificationImage?: string
-  timestamp?: Date | string
-  status?: 'pending' | 'processing' | 'completed'
-  assignedCenter?: string
-  verified?: boolean
-  verifiedAt?: string
-  verifiedBy?: string
-}
-
-export interface Statistics {
-  totalCenters: number
-  activeCenters: number
-  limitedCenters: number
-  fullCenters: number
-  totalCapacity: number
-  totalHelpRequests: number
-  pendingRequests: number
-  processingRequests: number
-  completedRequests: number
-  criticalRequests?: number
-  urgentRequests?: number
-  moderateRequests?: number
-  lastUpdated: string
-}
-
-export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  message?: string
-  error?: string
-  details?: any
-}
-
-export interface PaginatedResponse<T> {
-  success: boolean
-  data: T[]
-  pagination?: {
-    total: number
-    limit: number
-    offset: number
-    hasMore: boolean
-  }
-}
 
 // Helper function for API calls
 async function apiCall<T>(
@@ -411,6 +353,63 @@ export async function verifyDisasterCenter(id: string, verified: boolean = true,
   return apiCall<DisasterCenter>(`/disaster-centers/${id}/verify`, {
     method: 'PUT',
     body: JSON.stringify({ verified, verifiedBy: verifiedByUser }),
+  })
+}
+
+// Flood/Landslide Reports API
+export async function fetchFloodLandslideReports(params?: {
+  limit?: number
+  offset?: number
+  type?: 'flood' | 'landslide'
+  severity?: string
+  sort?: string
+  order?: 'asc' | 'desc'
+}): Promise<{ data: FloodLandslideReport[]; total: number; limit: number; offset: number }> {
+  const queryParams = new URLSearchParams()
+  if (params?.limit) queryParams.append('limit', params.limit.toString())
+  if (params?.offset) queryParams.append('offset', params.offset.toString())
+  if (params?.type) queryParams.append('type', params.type)
+  if (params?.severity) queryParams.append('severity', params.severity)
+  if (params?.sort) queryParams.append('sort', params.sort)
+  if (params?.order) queryParams.append('order', params.order)
+
+  const query = queryParams.toString()
+  const endpoint = `/flood-landslide-reports${query ? `?${query}` : ''}`
+  
+  const response = await apiCall<PaginatedResponse<FloodLandslideReport> | { data: FloodLandslideReport[]; total: number; limit: number; offset: number }>(endpoint)
+  
+  if ('pagination' in response) {
+    return {
+      data: response.data,
+      total: response.pagination?.total || response.data.length,
+      limit: response.pagination?.limit || params?.limit || 50,
+      offset: response.pagination?.offset || params?.offset || 0,
+    }
+  }
+  
+  return response as { data: FloodLandslideReport[]; total: number; limit: number; offset: number }
+}
+
+export async function submitFloodLandslideReport(report: Omit<FloodLandslideReport, 'id' | 'timestamp'>): Promise<FloodLandslideReport> {
+  return apiCall<FloodLandslideReport>('/flood-landslide-reports', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...report,
+      timestamp: new Date().toISOString(),
+    }),
+  })
+}
+
+export async function updateFloodLandslideReport(id: string, report: Partial<FloodLandslideReport>): Promise<FloodLandslideReport> {
+  return apiCall<FloodLandslideReport>(`/flood-landslide-reports/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(report),
+  })
+}
+
+export async function deleteFloodLandslideReport(id: string): Promise<void> {
+  await apiCall<void>(`/flood-landslide-reports/${id}`, {
+    method: 'DELETE',
   })
 }
 

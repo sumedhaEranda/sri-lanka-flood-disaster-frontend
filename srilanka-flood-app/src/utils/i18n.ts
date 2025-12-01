@@ -8,6 +8,7 @@ export interface Translations {
     subtitle: string
     refresh: string
     requestHelp: string
+    reportFloodLandslide: string
     emergency: string
   }
   sidebar: {
@@ -16,6 +17,8 @@ export interface Translations {
     helpRequests: string
     requestHelp: string
     createCenter: string
+    floodLandslideReports: string
+    reportFloodLandslide: string
     emergencyContact: string
   }
   stats: {
@@ -32,6 +35,8 @@ export interface Translations {
     helpRequests: string
     showOnlyRequests: string
     showAll: string
+    fullscreen?: string
+    exitFullscreen?: string
   }
   centers: {
     title: string
@@ -148,6 +153,55 @@ export interface Translations {
     limited: string
     full: string
   }
+  floodLandslide: {
+    title: string
+    reportFlood: string
+    reportLandslide: string
+    type: string
+    location: string
+    severity: string
+    description: string
+    reportedBy: string
+    phone: string
+    image: string
+    submit: string
+    success: string
+    successMessage: string
+    error: string
+    errorMessage: string
+    locationRequired: string
+    getLocation: string
+    locationDetecting: string
+    low: string
+    medium: string
+    peopleAffected?: string
+    roadAccess?: string
+    evacuationStatus?: string
+    accessible?: string
+    partiallyBlocked?: string
+    completelyBlocked?: string
+    evacuationNotNeeded?: string
+    evacuationInProgress?: string
+    evacuationCompleted?: string
+    evacuationUrgentNeeded?: string
+    high: string
+    critical: string
+    flood: string
+    landslide: string
+    reports: string
+    noReports: string
+    viewOnMap: string
+    delete: string
+    verified: string
+    unverified: string
+    edit: string
+    update: string
+    updateSuccess: string
+    updateError: string
+    cancel: string
+    date?: string
+    action?: string
+  }
 }
 
 const translations: Record<Language, Translations> = {
@@ -157,6 +211,7 @@ const translations: Record<Language, Translations> = {
       subtitle: 'Real-time monitoring of flood relief centers',
       refresh: 'Refresh',
       requestHelp: 'Request Help',
+      reportFloodLandslide: 'Report Flood/Landslide',
       emergency: 'Emergency'
     },
     sidebar: {
@@ -165,6 +220,8 @@ const translations: Record<Language, Translations> = {
       helpRequests: 'Help Requests',
       requestHelp: 'Request Help',
       createCenter: 'Create Center',
+      floodLandslideReports: 'Flood/Landslide Reports',
+      reportFloodLandslide: 'Report Flood/Landslide',
       emergencyContact: 'Emergency: 117'
     },
     stats: {
@@ -180,7 +237,9 @@ const translations: Record<Language, Translations> = {
       full: 'Full',
       helpRequests: 'Help Requests',
       showOnlyRequests: 'Show Only Help Requests',
-      showAll: 'Show All'
+      showAll: 'Show All',
+      fullscreen: 'Full Screen',
+      exitFullscreen: 'Exit Full Screen'
     },
     centers: {
       title: 'All Disaster Centers',
@@ -296,6 +355,55 @@ const translations: Record<Language, Translations> = {
       active: 'Active',
       limited: 'Limited',
       full: 'Full'
+    },
+    floodLandslide: {
+      title: 'Flood & Landslide Report',
+      reportFlood: 'Report Flood',
+      reportLandslide: 'Report Landslide',
+      type: 'Type',
+      location: 'Location',
+      severity: 'Severity',
+      description: 'Description',
+      reportedBy: 'Reported By',
+      phone: 'Phone Number',
+      image: 'Upload Image',
+      submit: 'Submit Report',
+      success: 'Report Submitted',
+      successMessage: 'Your flood/landslide report has been submitted successfully.',
+      error: 'Error',
+      errorMessage: 'Failed to submit report. Please try again.',
+      locationRequired: 'Please fill in all required fields',
+      getLocation: 'Get My Location',
+      locationDetecting: 'Detecting your location...',
+      low: 'Low',
+      medium: 'Medium',
+      peopleAffected: 'Number of People Affected',
+      roadAccess: 'Road Access Status',
+      evacuationStatus: 'Evacuation Status',
+      accessible: 'Accessible',
+      partiallyBlocked: 'Partially Blocked',
+      completelyBlocked: 'Completely Blocked',
+      evacuationNotNeeded: 'Evacuation Not Needed',
+      evacuationInProgress: 'Evacuation In Progress',
+      evacuationCompleted: 'Evacuation Completed',
+      evacuationUrgentNeeded: 'Urgent Evacuation Needed',
+      high: 'High',
+      critical: 'Critical',
+      flood: 'Flood',
+      landslide: 'Landslide',
+      reports: 'Flood & Landslide Reports',
+      noReports: 'No flood or landslide reports yet',
+      viewOnMap: 'View on Map',
+      delete: 'Delete',
+      verified: 'Verified',
+      unverified: 'Unverified',
+      edit: 'Edit',
+      update: 'Update Report',
+      updateSuccess: 'Report updated successfully!',
+      updateError: 'Failed to update report. Please try again.',
+      cancel: 'Cancel',
+      date: 'Date',
+      action: 'Action'
     }
   },
   si: {
@@ -304,6 +412,7 @@ const translations: Record<Language, Translations> = {
       subtitle: 'ගංවතුර උපකාර මධ්‍යස්ථාන සජීවී නිරීක්ෂණය',
       refresh: 'නැවත පූරණය',
       requestHelp: 'උදව් ඉල්ලන්න',
+      reportFloodLandslide: 'ජල ගැලීම් සහ නායැම් වාර්තා කරන්න',
       emergency: 'හදිසි'
     },
     sidebar: {
@@ -312,6 +421,8 @@ const translations: Record<Language, Translations> = {
       helpRequests: 'උදව් ඉල්ලීම්',
       requestHelp: 'උදව් ඉල්ලන්න',
       createCenter: 'මධ්‍යස්ථානයක් සාදන්න',
+      floodLandslideReports: 'ජල ගැලීම් සහ නායැම් වාර්තා',
+      reportFloodLandslide: 'ජල ගැලීම් සහ නායැම් වාර්තා කරන්න',
       emergencyContact: 'හදිසි: 117'
     },
     stats: {
@@ -327,7 +438,9 @@ const translations: Record<Language, Translations> = {
       active: 'සක්‍රිය',
       limited: 'සීමිත',
       full: 'පිරී ඇත',
-      helpRequests: 'උදව් ඉල්ලීම්'
+      helpRequests: 'උදව් ඉල්ලීම්',
+      fullscreen: 'සම්පූර්ණ තිරය',
+      exitFullscreen: 'සම්පූර්ණ තිරයෙන් පිටවීම'
     },
     centers: {
       title: 'සියලුම විපත් මධ්‍යස්ථාන',
@@ -443,6 +556,54 @@ const translations: Record<Language, Translations> = {
       active: 'සක්‍රිය',
       limited: 'සීමිත',
       full: 'පිරී ඇත'
+    },
+    floodLandslide: {
+      title: 'ජල ගැලීම් සහ නායැම් වාර්තාව',
+      reportFlood: 'ජල ගැලීම් දැක්වීම',
+      reportLandslide: 'නායැම් දැක්වීම',
+      type: 'වර්ගය',
+      location: 'ස්ථානය',
+      severity: 'දරුණු බව',
+      description: 'විස්තර',
+      reportedBy: 'වාර්තා කළේ',
+      
+      phone: 'දුරකථන අංකය',
+      peopleAffected: 'පීඩිත පුද්ගලයින් ගණන',
+      roadAccess: 'මාර්ග ප්‍රවේශයේ තත්වය',
+      evacuationStatus: 'ඉවත් කිරීමේ තත්වය',
+      accessible: 'ප්‍රවේශ විය හැකි',
+      partiallyBlocked: 'අර්ධ වශයෙන් අවහිර කර ඇත',
+      completelyBlocked: 'සම්පූර්ණයෙන් අවහිර කර ඇත',
+      evacuationNotNeeded: 'ඉවත් කිරීම අවශ්‍ය නැත',
+      evacuationInProgress: 'ඉවත් කිරීම සිදු වෙමින් පවතී',
+      evacuationCompleted: 'ඉවත් කිරීම සම්පූර්ණයි',
+      evacuationUrgentNeeded: 'හදිසි ඉවත් කිරීම අවශ්‍ය',
+      image: 'රූපය උඩුගත කරන්න',
+      submit: 'වාර්තාව යවන්න',
+      success: 'වාර්තාව යවන ලදී',
+      successMessage: 'ඔබේ ජල ගැලීම් සහ නායැම් වාර්තාව සාර්ථකව යවන ලදී.',
+      error: 'දෝෂය',
+      errorMessage: 'වාර්තාව යැවීමට අසමත් විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+      locationRequired: 'කරුණාකර සිතියමේ ස්ථානයක් තෝරන්න',
+      getLocation: 'මගේ ස්ථානය ලබා ගන්න',
+      locationDetecting: 'ඔබේ ස්ථානය හඳුනා ගැනීම...',
+      low: 'අඩු',
+      medium: 'මධ්‍යම',
+      high: 'ඉහළ',
+      critical: 'විශේෂ',
+      flood: 'ජල ගැලීම්',
+      landslide: 'නායැම්',
+      reports: 'ජල ගැලීම් සහ නායැම් වාර්තා',
+      noReports: 'තවමත් ජල ගැලීම් හෝ නායැම් වාර්තා නැත',
+      viewOnMap: 'සිතියමේ බලන්න',
+      delete: 'මකන්න',
+      verified: 'සත්‍යාපනය කරන ලදී',
+      unverified: 'සත්‍යාපනය නොකරන ලදී',
+      edit: 'සංස්කරණය',
+      update: 'වාර්තාව යාවත්කාලීන කරන්න',
+      updateSuccess: 'වාර්තාව සාර්ථකව යාවත්කාලීන කරන ලදී!',
+      updateError: 'වාර්තාව යාවත්කාලීන කිරීමට අසමත් විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+      cancel: 'අවලංගු කරන්න'
     }
   }
 }
