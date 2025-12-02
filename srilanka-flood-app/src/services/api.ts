@@ -16,7 +16,9 @@ export type {
   PaginatedResponse
 } from '../types/index.ts'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+// Base URL for backend API
+// NOTE: Must be provided via Vite env: VITE_API_BASE_URL (e.g. "https://floodapp-backend.onrender.com/api")
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 // Helper function for API calls
 async function apiCall<T>(
@@ -431,8 +433,6 @@ export interface RailwayRoadReport {
   verifiedBy?: string
   roadType?: 'highway' | 'main-road' | 'local-road' | 'bridge' | 'tunnel'
   railwayLine?: string
-  peopleAffected?: number
-  roadAccess?: 'accessible' | 'partially-blocked' | 'completely-blocked'
   affectedDistance?: number
   estimatedRepairTime?: string
 }
