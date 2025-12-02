@@ -413,3 +413,83 @@ export async function deleteFloodLandslideReport(id: string): Promise<void> {
   })
 }
 
+// Railway/Road System Reports API
+export interface RailwayRoadReport {
+  id?: string
+  type: 'railway' | 'road'
+  location: string
+  latitude: number
+  longitude: number
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  description?: string
+  reportedBy?: string
+  phone?: string
+  image?: string
+  timestamp?: Date | string
+  verified?: boolean
+  verifiedAt?: string
+  verifiedBy?: string
+  roadType?: 'highway' | 'main-road' | 'local-road' | 'bridge' | 'tunnel'
+  railwayLine?: string
+  peopleAffected?: number
+  roadAccess?: 'accessible' | 'partially-blocked' | 'completely-blocked'
+  affectedDistance?: number
+  estimatedRepairTime?: string
+}
+
+export async function fetchRailwayRoadReports(params?: {
+  limit?: number
+  offset?: number
+  type?: 'railway' | 'road'
+  severity?: string
+  sort?: string
+  order?: 'asc' | 'desc'
+}): Promise<{ data: RailwayRoadReport[]; total: number; limit: number; offset: number }> {
+  const queryParams = new URLSearchParams()
+  if (params?.limit) queryParams.append('limit', params.limit.toString())
+  if (params?.offset) queryParams.append('offset', params.offset.toString())
+  if (params?.type) queryParams.append('type', params.type)
+  if (params?.severity) queryParams.append('severity', params.severity)
+  if (params?.sort) queryParams.append('sort', params.sort)
+  if (params?.order) queryParams.append('order', params.order)
+
+  const query = queryParams.toString()
+  const endpoint = `/railway-road-reports${query ? `?${query}` : ''}`
+  
+  const response = await apiCall<PaginatedResponse<RailwayRoadReport> | { data: RailwayRoadReport[]; total: number; limit: number; offset: number }>(endpoint)
+  
+  if ('pagination' in response) {
+    return {
+      data: response.data,
+      total: response.pagination?.total || response.data.length,
+      limit: response.pagination?.limit || params?.limit || 50,
+      offset: response.pagination?.offset || params?.offset || 0,
+    }
+  }
+  
+  return response as { data: RailwayRoadReport[]; total: number; limit: number; offset: number }
+}
+
+export async function submitRailwayRoadReport(report: Omit<RailwayRoadReport, 'id' | 'timestamp'>): Promise<RailwayRoadReport> {
+  return apiCall<RailwayRoadReport>('/railway-road-reports', {
+    method: 'POST',
+    body: JSON.stringify({
+      ...report,
+      timestamp: new Date().toISOString(),
+    }),
+  })
+}
+
+export async function updateRailwayRoadReport(id: string, report: Partial<RailwayRoadReport>): Promise<RailwayRoadReport> {
+  return apiCall<RailwayRoadReport>(`/railway-road-reports/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(report),
+  })
+}
+
+export async function deleteRailwayRoadReport(id: string): Promise<void> {
+  await apiCall<void>(`/railway-road-reports/${id}`, {
+    method: 'DELETE',
+  })
+}
+

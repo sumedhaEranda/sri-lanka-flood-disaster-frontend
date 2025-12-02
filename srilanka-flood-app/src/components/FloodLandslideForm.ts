@@ -81,11 +81,11 @@ export function createFloodLandslideFormHTML(): string {
             <input type="text" id="reportedBy" name="reportedBy" required placeholder="${currentLang === 'si' ? 'ඔබේ නම ඇතුළත් කරන්න...' : 'Enter your name...'}" autocomplete="name">
           </div>
 
-          <!-- Phone -->
+          <!-- Phone (Optional) -->
           <div class="form-group">
-            <label for="phone" data-i18n="floodLandslide.phone">${tr.floodLandslide.phone} *</label>
-            <input type="tel" id="phone" name="phone" required placeholder="${currentLang === 'si' ? 'දුරකථන අංකය (උදා: 0765367297)' : 'Phone number (e.g., 0765367297)'}" autocomplete="tel">
-            <small style="color: #64748b; font-size: 0.875rem; display: block; margin-top: 0.5rem;">${currentLang === 'si' ? 'සම්බන්ධ වීමට අවශ්‍ය වනු ඇත' : 'Required for communication'}</small>
+            <label for="phone" data-i18n="floodLandslide.phone">${tr.floodLandslide.phone}</label>
+            <input type="tel" id="phone" name="phone" placeholder="${currentLang === 'si' ? 'දුරකථන අංකය (උදා: 0765367297)' : 'Phone number (e.g., 0765367297)'}" autocomplete="tel">
+            <small style="color: #64748b; font-size: 0.875rem; display: block; margin-top: 0.5rem;">${currentLang === 'si' ? '(විකල්ප) - සම්බන්ධ වීමට අවශ්‍ය නම් දුරකථන අංකය ඇතුළත් කරන්න' : '(Optional) - Enter phone number if you want responders to contact you'}</small>
           </div>
 
           <!-- Number of People Affected -->
@@ -440,14 +440,14 @@ export function setupFloodLandslideForm(container: HTMLElement): void {
     const roadAccess = formData.get('roadAccess') as string
     const evacuationStatus = formData.get('evacuationStatus') as string
 
-    // Validation
-    if (!type || !severity || !location || !latitude || !longitude || !description || !reportedBy || !phone) {
+    // Validation (phone is optional)
+    if (!type || !severity || !location || !latitude || !longitude || !description || !reportedBy) {
       alert(tr.floodLandslide.locationRequired || 'Please fill in all required fields')
       return
     }
 
-    // Validate phone number
-    if (!validatePhoneNumber(phone)) {
+    // Validate phone number only if provided (optional field)
+    if (phone && !validatePhoneNumber(phone)) {
       alert(tr.floodLandslide.phone + ' - ' + 'Please enter a valid Sri Lankan phone number.')
       if (phoneInput) phoneInput.focus()
       return

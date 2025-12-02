@@ -3,6 +3,7 @@ import { createDashboardHTML, setupDashboard } from './pages/Dashboard.ts'
 import { createHomelessHelpForm, setupHomelessHelpForm } from './components/HelpRequestForm.ts'
 import { createCenterFormHTML, setupCreateCenterForm } from './components/CreateCenterForm.ts'
 import { createFloodLandslideFormHTML, setupFloodLandslideForm } from './components/FloodLandslideForm.ts'
+import { createRailwayRoadFormHTML, setupRailwayRoadForm } from './components/RailwayRoadForm.ts'
 import { getCurrentLanguage, setLanguage } from './utils/i18n.ts'
 
 // Initialize default language to Sinhala if not set
@@ -33,6 +34,9 @@ window.addEventListener('languagechange', ((e: CustomEvent<{ language: string }>
     } else if (app.querySelector('#flood-landslide-form')) {
       // Flood/Landslide form is active
       showFloodLandslideForm()
+    } else if (app.querySelector('#railway-road-form')) {
+      // Railway/Road form is active
+      showRailwayRoadForm()
     }
   }
 }) as EventListener)
@@ -48,6 +52,7 @@ let showDashboard: () => Promise<void>
 let showHelpForm: () => void
 let showCreateCenter: () => void
 let showFloodLandslideForm: () => void
+let showRailwayRoadForm: () => void
 
 if (!app) {
   console.error('App element not found!')
@@ -55,7 +60,7 @@ if (!app) {
   showDashboard = async () => {
     if (!app) return
     app.innerHTML = createDashboardHTML()
-    await setupDashboard(app, showHelpForm, showCreateCenter, showFloodLandslideForm)
+    await setupDashboard(app, showHelpForm, showCreateCenter, showFloodLandslideForm, showRailwayRoadForm)
   }
 
   showHelpForm = () => {
@@ -90,6 +95,20 @@ if (!app) {
     if (!app) return
     app.innerHTML = createFloodLandslideFormHTML()
     setupFloodLandslideForm(app)
+    const formContainer = app.querySelector('.form-container')
+    if (formContainer) {
+      const dashboardBtn = document.createElement('button')
+      dashboardBtn.className = 'primary-btn back-btn'
+      dashboardBtn.innerHTML = '<span>←</span> <span>Back to Dashboard</span>'
+      dashboardBtn.addEventListener('click', showDashboard)
+      formContainer.insertBefore(dashboardBtn, formContainer.firstChild)
+    }
+  }
+
+  showRailwayRoadForm = () => {
+    if (!app) return
+    app.innerHTML = createRailwayRoadFormHTML()
+    setupRailwayRoadForm(app)
     const formContainer = app.querySelector('.form-container')
     if (formContainer) {
       const dashboardBtn = document.createElement('button')

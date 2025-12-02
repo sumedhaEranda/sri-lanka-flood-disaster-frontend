@@ -9,6 +9,7 @@ export interface Translations {
     refresh: string
     requestHelp: string
     reportFloodLandslide: string
+    reportRailwayRoad?: string
     emergency: string
   }
   sidebar: {
@@ -19,6 +20,8 @@ export interface Translations {
     createCenter: string
     floodLandslideReports: string
     reportFloodLandslide: string
+    railwayRoadReports?: string
+    reportRailwayRoad?: string
     emergencyContact: string
   }
   stats: {
@@ -37,6 +40,11 @@ export interface Translations {
     showAll: string
     fullscreen?: string
     exitFullscreen?: string
+    filters?: string
+    filterCenters?: string
+    filterFloodLandslide?: string
+    filterHelpRequests?: string
+    filterRailwayRoad?: string
   }
   centers: {
     title: string
@@ -203,6 +211,59 @@ export interface Translations {
     action?: string
     locationError?: string
   }
+  railwayRoad: {
+    title: string
+    type: string
+    railway: string
+    road: string
+    location: string
+    severity: string
+    description: string
+    reportedBy: string
+    phone: string
+    image: string
+    submit: string
+    success: string
+    successMessage: string
+    error: string
+    errorMessage: string
+    locationRequired: string
+    getLocation: string
+    locationDetecting: string
+    locationError: string
+    low: string
+    medium: string
+    high: string
+    critical: string
+    reports: string
+    noReports: string
+    viewOnMap: string
+    delete: string
+    verified: string
+    unverified: string
+    edit: string
+    update: string
+    updateSuccess: string
+    updateError: string
+    cancel: string
+    date?: string
+    action?: string
+    phoneInvalid?: string
+    roadType?: string
+    highway?: string
+    mainRoad?: string
+    localRoad?: string
+    bridge?: string
+    tunnel?: string
+    railwayLine?: string
+    peopleAffected?: string
+    roadAccess?: string
+    accessible?: string
+    partiallyBlocked?: string
+    completelyBlocked?: string
+    affectedDistance?: string
+    estimatedRepairTime?: string
+  }
 }
 
 const translations: Record<Language, Translations> = {
@@ -223,6 +284,8 @@ const translations: Record<Language, Translations> = {
       createCenter: 'Create Center',
       floodLandslideReports: 'Flood/Landslide Reports',
       reportFloodLandslide: 'Report Flood/Landslide',
+      railwayRoadReports: 'Railway/Road Reports',
+      reportRailwayRoad: 'Report Railway/Road',
       emergencyContact: 'Emergency: 117'
     },
     stats: {
@@ -240,7 +303,12 @@ const translations: Record<Language, Translations> = {
       showOnlyRequests: 'Show Only Help Requests',
       showAll: 'Show All',
       fullscreen: 'Full Screen',
-      exitFullscreen: 'Exit Full Screen'
+      exitFullscreen: 'Exit Full Screen',
+      filters: 'Filters',
+      filterCenters: 'Report',
+      filterFloodLandslide: 'Flood/Landslide',
+      filterHelpRequests: 'Request Help',
+      filterRailwayRoad: 'Report Railway/Road'
     },
     centers: {
       title: 'All Disaster Centers',
@@ -406,6 +474,59 @@ const translations: Record<Language, Translations> = {
       date: 'Date',
       action: 'Action',
       locationError: 'Location must be within Sri Lanka. Please select a location inside Sri Lanka.'
+    },
+    railwayRoad: {
+      title: 'Railway & Road System Report',
+      type: 'Type',
+      railway: 'Railway',
+      road: 'Road',
+      location: 'Location',
+      severity: 'Severity',
+      description: 'Description',
+      reportedBy: 'Reported By',
+      phone: 'Phone Number',
+      image: 'Upload Image',
+      submit: 'Submit Report',
+      success: 'Report Submitted',
+      successMessage: 'Your railway/road system report has been submitted successfully.',
+      error: 'Error',
+      errorMessage: 'Failed to submit report. Please try again.',
+      locationRequired: 'Please select a location on the map.',
+      getLocation: 'Get My Location',
+      locationDetecting: 'Detecting location...',
+      locationError: 'Location must be within Sri Lanka. Please select a location inside Sri Lanka.',
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      critical: 'Critical',
+      reports: 'Railway & Road Reports',
+      noReports: 'No railway or road reports yet',
+      viewOnMap: 'View on Map',
+      delete: 'Delete',
+      verified: 'Verified',
+      unverified: 'Unverified',
+      edit: 'Edit',
+      update: 'Update Report',
+      updateSuccess: 'Report updated successfully!',
+      updateError: 'Failed to update report. Please try again.',
+      cancel: 'Cancel',
+      date: 'Date',
+      action: 'Action',
+      phoneInvalid: 'Please enter a valid Sri Lankan phone number.',
+      roadType: 'Road Type',
+      highway: 'Highway',
+      mainRoad: 'Main Road',
+      localRoad: 'Local Road',
+      bridge: 'Bridge',
+      tunnel: 'Tunnel',
+      railwayLine: 'Railway Line',
+      peopleAffected: 'Number of People Affected',
+      roadAccess: 'Road Access Status',
+      accessible: 'Accessible',
+      partiallyBlocked: 'Partially Blocked',
+      completelyBlocked: 'Completely Blocked',
+      affectedDistance: 'Affected Distance (km)',
+      estimatedRepairTime: 'Estimated Repair Time'
     }
   },
   si: {
@@ -415,6 +536,7 @@ const translations: Record<Language, Translations> = {
       refresh: 'නැවත පූරණය',
       requestHelp: 'උදව් ඉල්ලන්න',
       reportFloodLandslide: 'ජල ගැලීම් සහ නායැම් වාර්තා කරන්න',
+      reportRailwayRoad: 'රේල්වේ සහ මාර්ග වාර්තා කරන්න',
       emergency: 'හදිසි'
     },
     sidebar: {
@@ -425,6 +547,8 @@ const translations: Record<Language, Translations> = {
       createCenter: 'මධ්‍යස්ථානයක් සාදන්න',
       floodLandslideReports: 'ජල ගැලීම් සහ නායැම් වාර්තා',
       reportFloodLandslide: 'ජල ගැලීම් සහ නායැම් වාර්තා කරන්න',
+      railwayRoadReports: 'රේල්වේ සහ මාර්ග වාර්තා',
+      reportRailwayRoad: 'රේල්වේ සහ මාර්ග වාර්තා කරන්න',
       emergencyContact: 'හදිසි: 117'
     },
     stats: {
@@ -442,7 +566,12 @@ const translations: Record<Language, Translations> = {
       full: 'පිරී ඇත',
       helpRequests: 'උදව් ඉල්ලීම්',
       fullscreen: 'සම්පූර්ණ තිරය',
-      exitFullscreen: 'සම්පූර්ණ තිරයෙන් පිටවීම'
+      exitFullscreen: 'සම්පූර්ණ තිරයෙන් පිටවීම',
+      filters: 'පෙරහන්',
+      filterCenters: 'වාර්තා',
+      filterFloodLandslide: 'ගංවතුර/භූමිකම්පා',
+      filterHelpRequests: 'උදව් ඉල්ලන්න',
+      filterRailwayRoad: 'රේල්වේ/රථවාහන වාර්තා'
     },
     centers: {
       title: 'සියලුම විපත් මධ්‍යස්ථාන',
@@ -609,6 +738,59 @@ const translations: Record<Language, Translations> = {
       date: 'දිනය',
       action: 'ක්‍රියාමාර්ග',
       locationError: 'ස්ථානය ශ්‍රී ලංකාව තුළ විය යුතුය. කරුණාකර ශ්‍රී ලංකාව තුළ ස්ථානයක් තෝරන්න.'
+    },
+    railwayRoad: {
+      title: 'රේල්වේ සහ මාර්ග පද්ධති වාර්තාව',
+      type: 'වර්ගය',
+      railway: 'රේල්වේ',
+      road: 'මාර්ගය',
+      location: 'ස්ථානය',
+      severity: 'දරුණු බව',
+      description: 'විස්තර',
+      reportedBy: 'වාර්තා කළේ',
+      phone: 'දුරකථන අංකය',
+      image: 'රූපය උඩුගත කරන්න',
+      submit: 'වාර්තාව යවන්න',
+      success: 'වාර්තාව යවන ලදී',
+      successMessage: 'ඔබේ රේල්වේ/මාර්ග පද්ධති වාර්තාව සාර්ථකව යවන ලදී.',
+      error: 'දෝෂය',
+      errorMessage: 'වාර්තාව යැවීමට අසමත් විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+      locationRequired: 'කරුණාකර සිතියමේ ස්ථානයක් තෝරන්න',
+      getLocation: 'මගේ ස්ථානය ලබා ගන්න',
+      locationDetecting: 'ඔබේ ස්ථානය හඳුනා ගැනීම...',
+      locationError: 'ස්ථානය ශ්‍රී ලංකාව තුළ විය යුතුය. කරුණාකර ශ්‍රී ලංකාව තුළ ස්ථානයක් තෝරන්න.',
+      low: 'අඩු',
+      medium: 'මධ්‍යම',
+      high: 'ඉහළ',
+      critical: 'විශේෂ',
+      reports: 'රේල්වේ සහ මාර්ග වාර්තා',
+      noReports: 'තවමත් රේල්වේ හෝ මාර්ග වාර්තා නැත',
+      viewOnMap: 'සිතියමේ බලන්න',
+      delete: 'මකන්න',
+      verified: 'සත්‍යාපනය කරන ලදී',
+      unverified: 'සත්‍යාපනය නොකරන ලදී',
+      edit: 'සංස්කරණය',
+      update: 'වාර්තාව යාවත්කාලීන කරන්න',
+      updateSuccess: 'වාර්තාව සාර්ථකව යාවත්කාලීන කරන ලදී!',
+      updateError: 'වාර්තාව යාවත්කාලීන කිරීමට අසමත් විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+      cancel: 'අවලංගු කරන්න',
+      date: 'දිනය',
+      action: 'ක්‍රියාමාර්ග',
+      phoneInvalid: 'කරුණාකර වලංගු ශ්‍රී ලංකා දුරකථන අංකයක් ඇතුළත් කරන්න.',
+      roadType: 'මාර්ග වර්ගය',
+      highway: 'රථවාහන මාර්ගය',
+      mainRoad: 'ප්‍රධාන මාර්ගය',
+      localRoad: 'ප්‍රාදේශීය මාර්ගය',
+      bridge: 'පාලම',
+      tunnel: 'ගුහාව',
+      railwayLine: 'රේල්වේ මාර්ගය',
+      peopleAffected: 'පීඩිත පුද්ගලයින් ගණන',
+      roadAccess: 'මාර්ග ප්‍රවේශයේ තත්වය',
+      accessible: 'ප්‍රවේශ විය හැකි',
+      partiallyBlocked: 'අර්ධ වශයෙන් අවහිර',
+      completelyBlocked: 'සම්පූර්ණයෙන් අවහිර',
+      affectedDistance: 'පීඩිත දුර (කි.මී.)',
+      estimatedRepairTime: 'ඇස්තමේන්තුගත අලුත්වැඩියා කාලය'
     }
   }
 }

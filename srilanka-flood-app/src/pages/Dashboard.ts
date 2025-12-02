@@ -1,5 +1,5 @@
 import { t, getCurrentLanguage, setLanguage, type Language } from '../utils/i18n.ts'
-import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, fetchFloodLandslideReports, deleteFloodLandslideReport, updateFloodLandslideReport, type DisasterCenter, type Statistics, type HelpRequest, type FloodLandslideReport } from '../services/api.ts'
+import { fetchDisasterCenters, fetchStatistics, fetchHelpRequests, verifyHelpRequest, verifyDisasterCenter, fetchFloodLandslideReports, deleteFloodLandslideReport, updateFloodLandslideReport, fetchRailwayRoadReports, deleteRailwayRoadReport, updateRailwayRoadReport, type DisasterCenter, type Statistics, type HelpRequest, type FloodLandslideReport, type RailwayRoadReport } from '../services/api.ts'
 
 // Export DisasterCenter type for use in other files
 export type { DisasterCenter }
@@ -12,6 +12,9 @@ let helpRequests: HelpRequest[] = []
 
 // Flood/Landslide reports loaded from API
 let floodLandslideReports: FloodLandslideReport[] = []
+
+// Railway/Road reports loaded from API
+let railwayRoadReports: RailwayRoadReport[] = []
 
 // Statistics loaded from API (stored for potential future use)
 // let dashboardStatistics: Statistics | null = null
@@ -36,11 +39,44 @@ declare const google: any
 
 let dashboardMap: any = null
 let markers: any[] = []
+let centerMarkers: any[] = [] // Track disaster center markers separately
 let helpRequestMarkers: any[] = [] // Track help request markers separately
 let floodLandslideMarkers: any[] = [] // Track flood/landslide markers separately
+let railwayRoadMarkers: any[] = [] // Track railway/road markers separately
 let currentInfoWindow: any = null // Track currently open InfoWindow
 let markerJustClicked: boolean = false // Flag to prevent map click from closing just-opened InfoWindow
 let dashboardContainer: HTMLElement | null = null // Store dashboard container for verification
+
+// Filter state for map markers
+let mapFilters = {
+  showCenters: true, // Report (Disaster Centers)
+  showFloodLandslide: true, // Flood/Landslide
+  showHelpRequests: true, // Request Help
+  showRailwayRoad: true // Report Railway/Road
+}
+
+// Update marker visibility based on filter state
+function updateMarkerVisibility(): void {
+  // Update center markers
+  centerMarkers.forEach(marker => {
+    marker.setVisible(mapFilters.showCenters)
+  })
+  
+  // Update help request markers
+  helpRequestMarkers.forEach(marker => {
+    marker.setVisible(mapFilters.showHelpRequests)
+  })
+  
+  // Update flood/landslide markers
+  floodLandslideMarkers.forEach(marker => {
+    marker.setVisible(mapFilters.showFloodLandslide)
+  })
+  
+  // Update railway/road markers
+  railwayRoadMarkers.forEach(marker => {
+    marker.setVisible(mapFilters.showRailwayRoad)
+  })
+}
 
 // Create Dashboard HTML
 export function createDashboardHTML(): string {
@@ -90,6 +126,14 @@ export function createDashboardHTML(): string {
             <span>📝</span>
             <span data-i18n="sidebar.reportFloodLandslide">${tr.sidebar.reportFloodLandslide || 'Report Flood/Landslide'}</span>
           </a>
+          <a href="#" class="nav-item" data-view="railway-road">
+            <span>🚧</span>
+            <span data-i18n="sidebar.railwayRoadReports">${tr.sidebar.railwayRoadReports || 'Railway/Road Reports'}</span>
+          </a>
+          <a href="#" class="nav-item" id="report-railway-road-nav">
+            <span>📝</span>
+            <span data-i18n="sidebar.reportRailwayRoad">${tr.sidebar.reportRailwayRoad || 'Report Railway/Road'}</span>
+          </a>
           <div class="language-switcher">
             <button class="lang-btn ${currentLang === 'en' ? 'active' : ''}" data-lang="en">
               <span>🇬🇧</span>
@@ -131,6 +175,10 @@ export function createDashboardHTML(): string {
               <span>🌊</span>
               <span data-i18n="dashboard.reportFloodLandslide">${tr.dashboard.reportFloodLandslide || 'Report Flood/Landslide'}</span>
             </button>
+            <button id="report-railway-road-btn" class="primary-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+              <span>🚧</span>
+              <span data-i18n="dashboard.reportRailwayRoad">${tr.dashboard.reportRailwayRoad || 'Report Railway/Road'}</span>
+            </button>
           </div>
         </header>
 
@@ -168,12 +216,31 @@ export function createDashboardHTML(): string {
         <section class="content-section" id="overview-section">
           <div class="section-header">
             <h2 data-i18n="map.title">📍 ${tr.map.title}</h2>
-            <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
               <div class="map-legend">
                 <span class="legend-item"><span class="legend-dot active"></span> <span data-i18n="map.active">${tr.map.active}</span></span>
                 <span class="legend-item"><span class="legend-dot limited"></span> <span data-i18n="map.limited">${tr.map.limited}</span></span>
                 <span class="legend-item"><span class="legend-dot full"></span> <span data-i18n="map.full">${tr.map.full}</span></span>
                 <span class="legend-item"><span class="legend-dot help-request"></span> <span data-i18n="map.helpRequests">${tr.map.helpRequests || 'Help Requests'}</span></span>
+              </div>
+              <div class="map-filters" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.5rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <span style="font-weight: 600; color: #475569; font-size: 0.9rem;" data-i18n="map.filters">${tr.map.filters || 'Filters'}:</span>
+                <label class="filter-toggle" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="filter-centers" checked style="cursor: pointer; width: 18px; height: 18px;">
+                  <span data-i18n="map.filterCenters">${tr.map.filterCenters || 'Report'}</span>
+                </label>
+                <label class="filter-toggle" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="filter-flood-landslide" checked style="cursor: pointer; width: 18px; height: 18px;">
+                  <span data-i18n="map.filterFloodLandslide">${tr.map.filterFloodLandslide || 'Flood/Landslide'}</span>
+                </label>
+                <label class="filter-toggle" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="filter-help-requests" checked style="cursor: pointer; width: 18px; height: 18px;">
+                  <span data-i18n="map.filterHelpRequests">${tr.map.filterHelpRequests || 'Request Help'}</span>
+                </label>
+                <label class="filter-toggle" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+                  <input type="checkbox" id="filter-railway-road" checked style="cursor: pointer; width: 18px; height: 18px;">
+                  <span data-i18n="map.filterRailwayRoad">${tr.map.filterRailwayRoad || 'Report Railway/Road'}</span>
+                </label>
               </div>
               <button id="map-fullscreen-btn" class="map-fullscreen-btn" title="${tr.map.fullscreen || 'Full Screen'}" style="background: #667eea; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s;">
                 <span>⛶</span>
@@ -272,13 +339,38 @@ export function createDashboardHTML(): string {
             </table>
           </div>
         </section>
+
+        <section class="content-section" id="railway-road-section" style="display: none;">
+          <div class="section-header">
+            <h2 data-i18n="railwayRoad.reports">🚧 ${tr.railwayRoad.reports}</h2>
+          </div>
+          <!-- Desktop Table View -->
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th data-i18n="railwayRoad.type">${tr.railwayRoad.type}</th>
+                  <th data-i18n="railwayRoad.location">${tr.railwayRoad.location}</th>
+                  <th data-i18n="railwayRoad.severity">${tr.railwayRoad.severity}</th>
+                  <th data-i18n="railwayRoad.description">${tr.railwayRoad.description}</th>
+                  <th data-i18n="railwayRoad.reportedBy">${tr.railwayRoad.reportedBy}</th>
+                  <th data-i18n="railwayRoad.date">${tr.railwayRoad.date || 'Date'}</th>
+                  <th data-i18n="railwayRoad.action">${tr.railwayRoad.action || 'Action'}</th>
+                </tr>
+              </thead>
+              <tbody id="railway-road-table-body">
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
   `
 }
 
 // Setup Dashboard
-export async function setupDashboard(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void, showFloodLandslideCallback?: () => void): Promise<void> {
+export async function setupDashboard(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void, showFloodLandslideCallback?: () => void, showRailwayRoadCallback?: () => void): Promise<void> {
   const mapContainer = container.querySelector<HTMLDivElement>('#dashboard-map')
   const requestHelpNav = container.querySelector<HTMLAnchorElement>('#request-help-nav')
   const requestHelpBtn = container.querySelector<HTMLButtonElement>('#request-help-btn')
@@ -319,6 +411,21 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
   if (reportFloodLandslideBtn && showFloodLandslideCallback) {
     reportFloodLandslideBtn.addEventListener('click', () => {
       showFloodLandslideCallback()
+    })
+  }
+
+  const reportRailwayRoadNav = container.querySelector<HTMLAnchorElement>('#report-railway-road-nav')
+  if (reportRailwayRoadNav && showRailwayRoadCallback) {
+    reportRailwayRoadNav.addEventListener('click', (e) => {
+      e.preventDefault()
+      showRailwayRoadCallback()
+    })
+  }
+
+  const reportRailwayRoadBtn = container.querySelector<HTMLButtonElement>('#report-railway-road-btn')
+  if (reportRailwayRoadBtn && showRailwayRoadCallback) {
+    reportRailwayRoadBtn.addEventListener('click', () => {
+      showRailwayRoadCallback()
     })
   }
 
@@ -402,6 +509,12 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
         if (floodLandslideSection) {
           floodLandslideSection.style.display = 'block'
           displayFloodLandslideReports(container)
+        }
+      } else if (view === 'railway-road') {
+        const railwayRoadSection = container.querySelector<HTMLElement>('#railway-road-section')
+        if (railwayRoadSection) {
+          railwayRoadSection.style.display = 'block'
+          displayRailwayRoadReports(container)
         }
       }
     })
@@ -522,13 +635,72 @@ export async function setupDashboard(container: HTMLElement, showFormCallback: (
   }
 
   // Language switcher
-  setupLanguageSwitcher(container, showFormCallback, showCreateCenterCallback, showFloodLandslideCallback)
+  setupLanguageSwitcher(container, showFormCallback, showCreateCenterCallback, showFloodLandslideCallback, showRailwayRoadCallback)
   
   // Load flood/landslide reports
   await loadFloodLandslideReports(container)
+  
+  // Load railway/road reports
+  await loadRailwayRoadReports(container)
 
   // Setup fullscreen map functionality
   setupMapFullscreen(container)
+  
+  // Setup map filter toggles
+  setupMapFilters(container)
+}
+
+// Setup map filter toggles
+function setupMapFilters(container: HTMLElement): void {
+  const filterCenters = container.querySelector<HTMLInputElement>('#filter-centers')
+  const filterFloodLandslide = container.querySelector<HTMLInputElement>('#filter-flood-landslide')
+  const filterHelpRequests = container.querySelector<HTMLInputElement>('#filter-help-requests')
+  const filterRailwayRoad = container.querySelector<HTMLInputElement>('#filter-railway-road')
+  
+  // Set initial checkbox states to match filter state
+  if (filterCenters) {
+    filterCenters.checked = mapFilters.showCenters
+    filterCenters.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement
+      mapFilters.showCenters = target.checked
+      updateMarkerVisibility()
+    })
+  } else {
+    console.warn('Filter checkbox #filter-centers not found')
+  }
+  
+  if (filterFloodLandslide) {
+    filterFloodLandslide.checked = mapFilters.showFloodLandslide
+    filterFloodLandslide.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement
+      mapFilters.showFloodLandslide = target.checked
+      updateMarkerVisibility()
+    })
+  } else {
+    console.warn('Filter checkbox #filter-flood-landslide not found')
+  }
+  
+  if (filterHelpRequests) {
+    filterHelpRequests.checked = mapFilters.showHelpRequests
+    filterHelpRequests.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement
+      mapFilters.showHelpRequests = target.checked
+      updateMarkerVisibility()
+    })
+  } else {
+    console.warn('Filter checkbox #filter-help-requests not found')
+  }
+  
+  if (filterRailwayRoad) {
+    filterRailwayRoad.checked = mapFilters.showRailwayRoad
+    filterRailwayRoad.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement
+      mapFilters.showRailwayRoad = target.checked
+      updateMarkerVisibility()
+    })
+  } else {
+    console.warn('Filter checkbox #filter-railway-road not found')
+  }
 }
 
 // Setup fullscreen map functionality
@@ -596,6 +768,40 @@ function setupMapFullscreen(container: HTMLElement): void {
         })
 
         helpRequestMarkers.forEach(marker => {
+          const position = marker.getPosition()
+          const newMarker = new google.maps.Marker({
+            position: position,
+            map: fullscreenMap,
+            icon: marker.getIcon(),
+            title: marker.getTitle()
+          })
+          
+          const infoWindow = marker.get('infoWindow')
+          if (infoWindow) {
+            newMarker.addListener('click', () => {
+              infoWindow.open(fullscreenMap, newMarker)
+            })
+          }
+        })
+
+        floodLandslideMarkers.forEach(marker => {
+          const position = marker.getPosition()
+          const newMarker = new google.maps.Marker({
+            position: position,
+            map: fullscreenMap,
+            icon: marker.getIcon(),
+            title: marker.getTitle()
+          })
+          
+          const infoWindow = marker.get('infoWindow')
+          if (infoWindow) {
+            newMarker.addListener('click', () => {
+              infoWindow.open(fullscreenMap, newMarker)
+            })
+          }
+        })
+
+        railwayRoadMarkers.forEach(marker => {
           const position = marker.getPosition()
           const newMarker = new google.maps.Marker({
             position: position,
@@ -736,7 +942,7 @@ async function loadHelpRequests(container: HTMLElement): Promise<void> {
 }
 
 // Setup language switcher (handles both sidebar and topbar language buttons)
-function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void, showFloodLandslideCallback?: () => void): void {
+function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => void, showCreateCenterCallback?: () => void, showFloodLandslideCallback?: () => void, showRailwayRoadCallback?: () => void): void {
   // Get all language buttons (both sidebar and topbar)
   const langButtons = container.querySelectorAll<HTMLButtonElement>('.lang-btn')
   
@@ -748,7 +954,7 @@ function setupLanguageSwitcher(container: HTMLElement, showFormCallback: () => v
       const app = document.querySelector<HTMLDivElement>('#app')
       if (app) {
         app.innerHTML = createDashboardHTML()
-        await setupDashboard(app, showFormCallback, showCreateCenterCallback, showFloodLandslideCallback)
+        await setupDashboard(app, showFormCallback, showCreateCenterCallback, showFloodLandslideCallback, showRailwayRoadCallback)
       }
     })
   })
@@ -788,6 +994,10 @@ function initializeMap(mapContainer: HTMLDivElement): void {
     // Clear existing markers
     markers.forEach(marker => marker.setMap(null))
     markers = []
+    centerMarkers = []
+    helpRequestMarkers = []
+    floodLandslideMarkers = []
+    railwayRoadMarkers = []
 
     if (typeof google === 'undefined' || !google.maps) {
       console.error('Google Maps not loaded')
@@ -854,6 +1064,7 @@ function initializeMap(mapContainer: HTMLDivElement): void {
     
     // Add flood/landslide markers
     addFloodLandslideMarkersToMap(bounds)
+    addRailwayRoadMarkersToMap()
     
     disasterCenters.forEach(center => {
       const color = center.status === 'active' ? '#28a745' : center.status === 'limited' ? '#ffc107' : '#dc3545'
@@ -1007,6 +1218,8 @@ function initializeMap(mapContainer: HTMLDivElement): void {
       })
 
       markers.push(marker)
+      centerMarkers.push(marker) // Track center markers separately
+      marker.setVisible(mapFilters.showCenters) // Apply filter
       bounds.extend({ lat: center.latitude, lng: center.longitude })
     })
 
@@ -1054,15 +1267,19 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
       markerColor = '#ffc107' // Yellow
     }
     
-    // Create custom marker icon (different shape - square/pin for help requests)
+    // Create custom marker icon (pin with ! for help requests)
+    const helpIconSvg = `
+      <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2C11.58 2 8 5.58 8 10c0 5.25 6.5 12 8 14 1.5-2 8-8.75 8-14 0-4.42-3.58-8-8-8z"
+              fill="${markerColor}" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="16" cy="11" r="6" fill="#ffffff" />
+        <text x="16" y="14" text-anchor="middle" font-size="14" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fill="${markerColor}" font-weight="700">!</text>
+      </svg>
+    `
     const markerIcon = {
-      path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-      scale: 8,
-      fillColor: markerColor,
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
-      rotation: 180 // Point downward
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(helpIconSvg),
+      scaledSize: new google.maps.Size(32, 32),
+      anchor: new google.maps.Point(16, 32)
     }
     
     // Create marker
@@ -1229,6 +1446,7 @@ function addHelpRequestMarkersToMap(bounds?: any): void {
     
     markers.push(marker)
     helpRequestMarkers.push(marker) // Track help request markers separately
+    marker.setVisible(mapFilters.showHelpRequests) // Apply filter
     bounds.extend({ lat: request.latitude, lng: request.longitude })
   })
 }
@@ -1280,15 +1498,20 @@ function addFloodLandslideMarkersToMap(bounds?: any): void {
       markerColor = '#28a745' // Green
     }
     
-    // Create custom marker icon (triangle for flood/landslide)
+    // Create custom marker icon (pin with emoji for flood/landslide)
+    const floodIconEmoji = report.type === 'flood' ? '🌊' : '⛰️'
+    const floodIconSvg = `
+      <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2C11.58 2 8 5.58 8 10c0 5.25 6.5 12 8 14 1.5-2 8-8.75 8-14 0-4.42-3.58-8-8-8z"
+              fill="${markerColor}" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="16" cy="11" r="6" fill="#ffffff" />
+        <text x="16" y="14" text-anchor="middle" font-size="14" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">${floodIconEmoji}</text>
+      </svg>
+    `
     const markerIcon = {
-      path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-      scale: 10,
-      fillColor: markerColor,
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
-      rotation: 0
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(floodIconSvg),
+      scaledSize: new google.maps.Size(32, 32),
+      anchor: new google.maps.Point(16, 32)
     }
     
     // Create marker
@@ -1359,7 +1582,285 @@ function addFloodLandslideMarkersToMap(bounds?: any): void {
     
     markers.push(marker)
     floodLandslideMarkers.push(marker) // Track flood/landslide markers separately
+    marker.setVisible(mapFilters.showFloodLandslide) // Apply filter
     bounds.extend({ lat: report.latitude, lng: report.longitude })
+  })
+}
+
+// Load railway/road reports from API
+async function loadRailwayRoadReports(_container: HTMLElement): Promise<void> {
+  try {
+    const response = await fetchRailwayRoadReports({ limit: 100, sort: 'timestamp', order: 'desc' })
+    railwayRoadReports = response.data.filter(report => report.latitude && report.longitude)
+    
+    // Add markers to map if map is already initialized
+    if (dashboardMap) {
+      addRailwayRoadMarkersToMap()
+    }
+  } catch (error) {
+    console.error('Error loading railway/road reports:', error)
+    railwayRoadReports = []
+  }
+}
+
+// Add Railway/Road Report Markers to Map
+function addRailwayRoadMarkersToMap(): void {
+  if (!dashboardMap || typeof google === 'undefined' || !google.maps) return
+
+  const tr = t()
+
+  railwayRoadReports.forEach((report: RailwayRoadReport) => {
+    if (!report.latitude || !report.longitude) return
+
+    const railwayRoadEmoji = report.type === 'railway' ? '🚂' : '🛣️'
+    const railwayRoadColor = report.type === 'railway' ? '#f59e0b' : '#d97706'
+    const railwayRoadIconSvg = `
+      <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2C11.58 2 8 5.58 8 10c0 5.25 6.5 12 8 14 1.5-2 8-8.75 8-14 0-4.42-3.58-8-8-8z"
+              fill="${railwayRoadColor}" stroke="#ffffff" stroke-width="2"/>
+        <circle cx="16" cy="11" r="6" fill="#ffffff" />
+        <text x="16" y="14" text-anchor="middle" font-size="14" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">${railwayRoadEmoji}</text>
+      </svg>
+    `
+    const icon = {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(railwayRoadIconSvg),
+      scaledSize: new google.maps.Size(32, 32),
+      anchor: new google.maps.Point(16, 32)
+    }
+
+    const marker = new google.maps.Marker({
+      position: { lat: report.latitude, lng: report.longitude },
+      map: dashboardMap,
+      icon: icon,
+      title: `${report.type === 'railway' ? 'Railway' : 'Road'} Report: ${report.location || 'Unknown'}`
+    })
+
+    const severityLabels: Record<string, string> = {
+      low: tr.railwayRoad.low,
+      medium: tr.railwayRoad.medium,
+      high: tr.railwayRoad.high,
+      critical: tr.railwayRoad.critical
+    }
+
+    const infoWindow = new google.maps.InfoWindow({
+      content: `
+        <div style="max-width: 300px; padding: 0.5rem;">
+          <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; color: #1e293b;">
+            ${report.type === 'railway' ? '🚂' : '🛣️'} ${report.type === 'railway' ? tr.railwayRoad.railway : tr.railwayRoad.road} Report
+          </h3>
+          <p style="margin: 0.25rem 0; color: #475569;"><strong>${tr.railwayRoad.location}:</strong> ${report.location || 'N/A'}</p>
+          <p style="margin: 0.25rem 0; color: #475569;"><strong>${tr.railwayRoad.severity}:</strong> ${severityLabels[report.severity] || report.severity}</p>
+          ${report.description ? `<p style="margin: 0.25rem 0; color: #475569;"><strong>${tr.railwayRoad.description}:</strong> ${report.description}</p>` : ''}
+          ${report.reportedBy ? `<p style="margin: 0.25rem 0; color: #475569;"><strong>${tr.railwayRoad.reportedBy}:</strong> ${report.reportedBy}</p>` : ''}
+          ${report.phone ? `<p style="margin: 0.25rem 0; color: #475569;"><strong>${tr.railwayRoad.phone}:</strong> <a href="tel:${report.phone}" style="color: #667eea;">${report.phone}</a></p>` : ''}
+        </div>
+      `
+    })
+
+    marker.addListener('click', () => {
+      if (currentInfoWindow) {
+        currentInfoWindow.close()
+      }
+      infoWindow.open(dashboardMap, marker)
+      currentInfoWindow = infoWindow
+    })
+    
+    // Store infoWindow with marker for fullscreen map
+    marker.set('infoWindow', infoWindow)
+    
+    markers.push(marker)
+    railwayRoadMarkers.push(marker) // Track railway/road markers separately
+    marker.setVisible(mapFilters.showRailwayRoad) // Apply filter
+  })
+}
+
+// Display Railway/Road Reports Table
+function displayRailwayRoadReports(container: HTMLElement): void {
+  const tableBody = container.querySelector<HTMLTableSectionElement>('#railway-road-table-body')
+  if (!tableBody) return
+
+  const tr = t()
+
+  if (railwayRoadReports.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #666;" data-i18n="railwayRoad.noReports">${tr.railwayRoad.noReports}</td></tr>`
+    return
+  }
+
+  const sorted = [...railwayRoadReports].sort((a: any, b: any) => {
+    const dateA = new Date(a.timestamp || a.createdAt || 0).getTime()
+    const dateB = new Date(b.timestamp || b.createdAt || 0).getTime()
+    return dateB - dateA
+  })
+
+  tableBody.innerHTML = sorted.map((report: any, i: number) => {
+    const date = new Date(report.timestamp || report.createdAt || Date.now())
+    const typeLabel = report.type === 'railway' ? tr.railwayRoad.railway : tr.railwayRoad.road
+    const typeIcon = report.type === 'railway' ? '🚂' : '🛣️'
+    
+    const severityLabels: Record<string, string> = {
+      low: tr.railwayRoad.low,
+      medium: tr.railwayRoad.medium,
+      high: tr.railwayRoad.high,
+      critical: tr.railwayRoad.critical
+    }
+    
+    const severityColors: Record<string, string> = {
+      low: '#28a745',
+      medium: '#ffc107',
+      high: '#ff9800',
+      critical: '#dc3545'
+    }
+    
+    const severityBadge = `<span style="display: inline-block; padding: 4px 8px; background: ${severityColors[report.severity] || '#667eea'}; color: white; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">${severityLabels[report.severity] || report.severity}</span>`
+
+    const locationCell = report.latitude && report.longitude
+      ? `<div style="max-width: 250px;">
+          <div style="margin-bottom: 4px; color: #475569; font-weight: 500;">📍 ${report.location || 'Location not specified'}</div>
+          <a href="https://www.google.com/maps?q=${report.latitude},${report.longitude}" target="_blank" style="color: #667eea; text-decoration: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+            🗺️ ${tr.railwayRoad.viewOnMap}
+          </a>
+        </div>`
+      : `<div style="max-width: 250px;">
+          <div style="color: #475569;">📍 ${report.location || 'Location not specified'}</div>
+        </div>`
+
+    return `
+      <tr>
+        <td>${i + 1}</td>
+        <td><span style="font-size: 1.2rem;">${typeIcon}</span> ${typeLabel}</td>
+        <td>${locationCell}</td>
+        <td>${severityBadge}</td>
+        <td style="max-width: 300px;">${report.description || '-'}</td>
+        <td>${report.reportedBy || '-'}</td>
+        <td>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+        <td>
+          ${report.latitude && report.longitude ? `
+            <button class="btn-action" data-lat="${report.latitude}" data-lng="${report.longitude}" title="${tr.railwayRoad.viewOnMap || 'View on Map'}">🗺️</button>
+          ` : ''}
+          ${report.id ? `
+            <button class="btn-action edit-btn" data-id="${report.id}" data-report='${JSON.stringify(report).replace(/'/g, "&#39;")}' title="${tr.railwayRoad.edit || 'Edit Report'}">✏️</button>
+            <button class="btn-action delete-btn" data-id="${report.id}" title="${tr.railwayRoad.delete || 'Delete Report'}">🗑️</button>
+          ` : ''}
+        </td>
+      </tr>
+    `
+  }).join('')
+
+  // Add click handlers for map buttons
+  tableBody.querySelectorAll('.btn-action[data-lat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lat = parseFloat((btn as HTMLElement).dataset.lat || '0')
+      const lng = parseFloat((btn as HTMLElement).dataset.lng || '0')
+      if (dashboardMap) {
+        dashboardMap.setCenter({ lat, lng })
+        dashboardMap.setZoom(15)
+        const overviewNav = document.querySelector('.nav-item[data-view="overview"]')
+        if (overviewNav) (overviewNav as HTMLElement).click()
+
+        const marker = markers.find(m => {
+          const pos = m.getPosition()
+          return Math.abs(pos.lat() - lat) < 0.001 && Math.abs(pos.lng() - lng) < 0.001
+        })
+        if (marker && marker.get('infoWindow')) {
+          marker.get('infoWindow').open(dashboardMap, marker)
+        }
+      }
+    })
+  })
+
+  // Add click handlers for edit buttons
+  tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const reportId = (btn as HTMLElement).dataset.id
+      const reportData = (btn as HTMLElement).dataset.report
+      if (reportId && reportData) {
+        try {
+          const report = JSON.parse(reportData.replace(/&#39;/g, "'")) as RailwayRoadReport
+          showEditRailwayRoadModal(report, container)
+        } catch (error) {
+          console.error('Error parsing report data:', error)
+        }
+      }
+    })
+  })
+
+  // Add click handlers for delete buttons
+  tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const reportId = (btn as HTMLElement).dataset.id
+      if (reportId && confirm(tr.railwayRoad.delete ? `Are you sure you want to delete this report?` : 'Are you sure you want to delete this report?')) {
+        try {
+          await deleteRailwayRoadReport(reportId)
+          await loadRailwayRoadReports(container)
+          displayRailwayRoadReports(container)
+        } catch (error) {
+          console.error('Error deleting report:', error)
+          alert('Failed to delete report. Please try again.')
+        }
+      }
+    })
+  })
+}
+
+// Show Edit Railway/Road Modal
+function showEditRailwayRoadModal(report: RailwayRoadReport, container: HTMLElement): void {
+  const tr = t()
+  
+  const modal = document.createElement('div')
+  modal.className = 'modal-overlay'
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 600px;">
+      <button class="modal-close" style="position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 1.2rem;">✕</button>
+      <h2 data-i18n="railwayRoad.edit">${tr.railwayRoad.edit}</h2>
+      <form id="edit-railway-road-form">
+        <div class="form-group">
+          <label>${tr.railwayRoad.severity}</label>
+          <select id="edit-severity" required>
+            <option value="low" ${report.severity === 'low' ? 'selected' : ''}>${tr.railwayRoad.low}</option>
+            <option value="medium" ${report.severity === 'medium' ? 'selected' : ''}>${tr.railwayRoad.medium}</option>
+            <option value="high" ${report.severity === 'high' ? 'selected' : ''}>${tr.railwayRoad.high}</option>
+            <option value="critical" ${report.severity === 'critical' ? 'selected' : ''}>${tr.railwayRoad.critical}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>${tr.railwayRoad.description}</label>
+          <textarea id="edit-description" rows="4" required>${report.description || ''}</textarea>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button type="submit" class="submit-btn" style="flex: 1;" data-i18n="railwayRoad.update">${tr.railwayRoad.update}</button>
+          <button type="button" class="submit-btn" style="flex: 1; background: #6c757d;" data-i18n="railwayRoad.cancel">${tr.railwayRoad.cancel}</button>
+        </div>
+      </form>
+    </div>
+  `
+  
+  document.body.appendChild(modal)
+  
+  modal.querySelector('.modal-close')?.addEventListener('click', () => {
+    document.body.removeChild(modal)
+  })
+  
+  modal.querySelector('button[type="button"]')?.addEventListener('click', () => {
+    document.body.removeChild(modal)
+  })
+  
+  modal.querySelector('#edit-railway-road-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    if (!report.id) return
+    
+    const severity = (modal.querySelector('#edit-severity') as HTMLSelectElement)?.value
+    const description = (modal.querySelector('#edit-description') as HTMLTextAreaElement)?.value
+    
+    try {
+      await updateRailwayRoadReport(report.id, { severity: severity as any, description })
+      document.body.removeChild(modal)
+      await loadRailwayRoadReports(container)
+      displayRailwayRoadReports(container)
+      alert(tr.railwayRoad.updateSuccess || 'Report updated successfully!')
+    } catch (error) {
+      console.error('Error updating report:', error)
+      alert(tr.railwayRoad.updateError || 'Failed to update report. Please try again.')
+    }
   })
 }
 
