@@ -536,6 +536,8 @@ function initializeRailwayRoadFormMap(
   _getLocationBtn: HTMLButtonElement | null
 ): void {
   try {
+    const tr = t()
+
     if (mapContainer.hasChildNodes()) {
       mapContainer.innerHTML = ''
     }
