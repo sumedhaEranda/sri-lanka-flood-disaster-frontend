@@ -433,6 +433,9 @@ export interface RailwayRoadReport {
   verifiedBy?: string
   roadType?: 'highway' | 'main-road' | 'local-road' | 'bridge' | 'tunnel'
   railwayLine?: string
+  // Additional optional details for better communication
+  peopleAffected?: number
+  roadAccess?: 'accessible' | 'partially-blocked' | 'completely-blocked'
   affectedDistance?: number
   estimatedRepairTime?: string
 }
